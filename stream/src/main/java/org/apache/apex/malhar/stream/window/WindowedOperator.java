@@ -21,9 +21,6 @@ package org.apache.apex.malhar.stream.window;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.hadoop.classification.InterfaceStability;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * This interface describes what needs to be implemented for the operator that supports the Apache Beam model of
  * windowing and triggering
@@ -31,23 +28,6 @@ import java.util.List;
 @InterfaceStability.Evolving
 public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
 {
-  class WindowedValue<T>
-  {
-    public WindowedValue()
-    {
-    }
-
-    public WindowedValue(Window window, long timestamp, T value)
-    {
-      this.windows.add(window);
-      this.timestamp = timestamp;
-      this.value = value;
-    }
-
-    public List<Window> windows = new ArrayList<>();
-    public long timestamp;
-    public T value;
-  }
 
   /**
    * Sets the WindowOption of this operator
@@ -99,7 +79,7 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    * @param input
    * @return
    */
-  WindowedValue<InputT> getWindowedValue(InputT input);
+  Tuple.WindowedTuple<InputT> getWindowedValue(InputT input);
 
   /**
    * This method returns whether the given timestamp is too late for processing.
@@ -117,14 +97,14 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    *
    * @param input
    */
-  void dropTuple(InputT input);
+  void dropTuple(Tuple<InputT> input);
 
   /**
    * This method accumulates the incoming tuple (with the Accumulation interface)
    *
    * @param tuple
    */
-  void accumulateTuple(WindowedValue<InputT> tuple);
+  void accumulateTuple(Tuple.WindowedTuple<InputT> tuple);
 
   /**
    * This method should be called when the watermark for the given timestamp arrives
@@ -134,7 +114,7 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    *
    * @param watermark
    */
-  void processWatermark(Watermark watermark);
+  void processWatermark(Tuple.WatermarkTuple<InputT> watermark);
 
   /**
    * This method fires the trigger for the given window, and possibly retraction trigger. The implementation should clear

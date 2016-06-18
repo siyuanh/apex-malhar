@@ -33,7 +33,7 @@ import org.joda.time.Duration;
 @InterfaceStability.Evolving
 public abstract class WindowOption
 {
-  // TODO: We might not want to include the TriggerOption, the AccumulationMode and the AllowedLateness in the WindowOption since the input of the operator might already be a WindowedValue from upstream. Need further discussion
+  // TODO: We might not want to include the TriggerOption, the AccumulationMode and the AllowedLateness in the WindowOption since the input of the operator might already be a WindowedTuple from upstream. Need further discussion
 
   private TriggerOption triggerOption;
 

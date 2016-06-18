@@ -16,9 +16,9 @@ import com.datatorrent.stram.plan.logical.LogicalPlan;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.window.Accumulation;
 import org.apache.apex.malhar.stream.window.SessionWindowedStorage;
+import org.apache.apex.malhar.stream.window.Tuple;
 import org.apache.apex.malhar.stream.window.WindowedStorage;
 import org.apache.apex.malhar.stream.window.TriggerOption;
-import org.apache.apex.malhar.stream.window.Watermark;
 import org.apache.apex.malhar.stream.window.Window;
 import org.apache.apex.malhar.stream.window.WindowOption;
 import org.apache.apex.malhar.stream.window.WindowState;
@@ -32,7 +32,6 @@ import org.joda.time.Duration;
 public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
     extends BaseOperator implements WindowedOperator<InputT, KeyT, AccumT, OutputT>
 {
-  // TODO: Need further discussion on the type parameters. InputT and OuputT may be a watermark, a KV pair, a WindowedValue, or a plain data object
 
   private WindowOption windowOption;
   private Accumulation<InputT, AccumT, OutputT> accumulation;
@@ -55,10 +54,10 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   private long firstWindowMillis;
   private long windowWidthMillis;
 
-  public transient DefaultInputPort<InputT> input = new DefaultInputPort<InputT>()
+  public transient DefaultInputPort<Tuple<InputT>> input = new DefaultInputPort<Tuple<InputT>>()
   {
     @Override
-    public void process(InputT tuple)
+    public void process(Tuple<InputT> tuple)
     {
       processTuple(tuple);
     }
@@ -66,22 +65,22 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
 
   // TODO: multiple input ports for join operations
 
-  public transient DefaultOutputPort<WindowedValue<OutputT>> output = new DefaultOutputPort<>();
+  public transient DefaultOutputPort<Tuple<OutputT>> output = new DefaultOutputPort<>();
 
-  protected void processTuple(InputT tuple)
+  protected void processTuple(Tuple<InputT> tuple)
   {
-    if (tuple instanceof Watermark) {
-      processWatermark((Watermark)tuple);
+    if (tuple instanceof Tuple.WatermarkTuple) {
+      processWatermark((Tuple.WatermarkTuple<InputT>) tuple);
     } else {
-      long timestamp = timestampExtractor.f(tuple);
+      long timestamp = timestampExtractor.f(tuple.getValue());
       if (isTooLate(timestamp)) {
         dropTuple(tuple);
       } else {
-        WindowedValue<InputT> windowedValue = getWindowedValue(tuple);
+        Tuple.WindowedTuple<InputT> windowedTuple = getWindowedValue(tuple.getValue());
         // do the accumulation
-        accumulateTuple(windowedValue);
+        accumulateTuple(windowedTuple);
 
-        for (Window window : windowedValue.windows) {
+        for (Window window : windowedTuple.getWindows()) {
           WindowState windowState = windowStateMap.get(window);
           windowState.tupleCount++;
           // process any count based triggers
@@ -159,12 +158,12 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   }
 
   @Override
-  public WindowedValue<InputT> getWindowedValue(InputT input)
+  public Tuple.WindowedTuple<InputT> getWindowedValue(InputT input)
   {
-    WindowedValue<InputT> windowedValue = new WindowedValue<>();
-    windowedValue.timestamp = timestampExtractor.f(input);
-    assignWindows(windowedValue.windows, input);
-    return windowedValue;
+    Tuple.WindowedTuple<InputT> windowedTuple = new Tuple.WindowedTuple<>();
+    windowedTuple.setTimestamp(timestampExtractor.f(input));
+    assignWindows(windowedTuple.getWindows(), input);
+    return windowedTuple;
   }
 
   private void assignWindows(List<Window> windows, InputT input)
@@ -290,24 +289,24 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   }
 
   @Override
-  public void dropTuple(InputT input)
+  public void dropTuple(Tuple<InputT> input)
   {
     // do nothing
   }
 
   @Override
-  public void accumulateTuple(WindowedValue<InputT> tuple)
+  public void accumulateTuple(Tuple.WindowedTuple<InputT> tuple)
   {
-    KeyT key = keyExtractor.f(tuple.value);
-    for (Window window : tuple.windows) {
+    KeyT key = keyExtractor.f(tuple.getValue());
+    for (Window window : tuple.getWindows()) {
       // process each window
       AccumT accum = dataStorage.get(window, key);
-      dataStorage.put(window, key, accumulation.accumulate(accum, tuple.value));
+      dataStorage.put(window, key, accumulation.accumulate(accum, tuple.getValue()));
     }
   }
 
   @Override
-  public void processWatermark(Watermark watermark)
+  public void processWatermark(Tuple.WatermarkTuple<InputT> watermark)
   {
     currentWatermark = watermark.getTimestamp();
     long horizon = currentWatermark - windowOption.getAllowedLateness().getMillis();
@@ -333,8 +332,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
       }
     }
 
-    // TODO: propagate the watermark downstream
-    //output.emit(watermark);
+    output.emit((Tuple.WatermarkTuple<OutputT>)watermark);
 
     // TODO: if join operation (multiple input ports), we need to keep track of the watermark on all ports, and then propagate the watermark only when a new watermark arrives with the smallest timestamp among all the ports
   }
@@ -395,7 +393,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
       fireRetractionTrigger(window);
     }
     for (Map.Entry<KeyT, AccumT> entry : dataStorage.entrySet(window)) {
-      output.emit(new WindowedValue<>(window, window.getBeginTimestamp(), accumulation.getOutput(entry.getValue())));
+      output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(), accumulation.getOutput(entry.getValue())));
       if (retractionStorage != null) {
         retractionStorage.put(window, entry.getKey(), entry.getValue());
       }
@@ -414,7 +412,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
       throw new UnsupportedOperationException();
     }
     for (Map.Entry<KeyT, AccumT> entry : retractionStorage.entrySet(window)) {
-      output.emit(new WindowedValue<>(window, window.getBeginTimestamp(), accumulation.getRetraction(entry.getValue())));
+      output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(), accumulation.getRetraction(entry.getValue())));
     }
   }
 
