@@ -30,7 +30,7 @@ import java.util.Map;
  * @param <V> The value type
  */
 @InterfaceStability.Evolving
-public interface SessionWindowedStorage<K, V> extends WindowedStorage<K, V>
+public interface SessionWindowedStorage<K, V> extends WindowedKeyedStorage<K, V>
 {
   /**
    * Given the key, the timestamp and the gap, gets the data that falls into timestamp +/- gap.

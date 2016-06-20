@@ -5,24 +5,25 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.api.DefaultInputPort;
 import com.datatorrent.api.DefaultOutputPort;
 import com.datatorrent.common.util.BaseOperator;
+import com.datatorrent.lib.util.KeyValPair;
 import com.datatorrent.stram.engine.WindowGenerator;
 import com.datatorrent.stram.plan.logical.LogicalPlan;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.window.Accumulation;
 import org.apache.apex.malhar.stream.window.SessionWindowedStorage;
 import org.apache.apex.malhar.stream.window.Tuple;
-import org.apache.apex.malhar.stream.window.WindowedStorage;
+import org.apache.apex.malhar.stream.window.WindowedKeyedStorage;
 import org.apache.apex.malhar.stream.window.TriggerOption;
 import org.apache.apex.malhar.stream.window.Window;
 import org.apache.apex.malhar.stream.window.WindowOption;
 import org.apache.apex.malhar.stream.window.WindowState;
 import org.apache.apex.malhar.stream.window.WindowedOperator;
+import org.apache.apex.malhar.stream.window.WindowedStorage;
 import org.joda.time.Duration;
 
 
@@ -35,11 +36,9 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
 
   private WindowOption windowOption;
   private Accumulation<InputT, AccumT, OutputT> accumulation;
-  private WindowedStorage<KeyT, AccumT> dataStorage;
-  private WindowedStorage<KeyT, AccumT> retractionStorage;
-
-  private TreeMap<Window, WindowState> windowStateMap = new TreeMap<>();
-  // TODO: Make this window state storage a pluggable interface
+  private WindowedKeyedStorage<KeyT, AccumT> dataStorage;
+  private WindowedKeyedStorage<KeyT, AccumT> retractionStorage;
+  private WindowedStorage<WindowState> windowStateMap;
 
   private Function.MapFunction<InputT, Long> timestampExtractor;
   private Function.MapFunction<InputT, KeyT> keyExtractor;
@@ -76,7 +75,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
       if (isTooLate(timestamp)) {
         dropTuple(tuple);
       } else {
-        Tuple.WindowedTuple<InputT> windowedTuple = getWindowedValue(tuple.getValue());
+        Tuple.WindowedTuple<InputT> windowedTuple = getWindowedValue(tuple);
         // do the accumulation
         accumulateTuple(windowedTuple);
 
@@ -85,11 +84,12 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
           windowState.tupleCount++;
           // process any count based triggers
           if (windowState.watermarkArrivalTime == -1) {
-            // watermark has not arrived yet
+            // watermark has not arrived yet, check for early count based trigger
             if (earlyTriggerCount > 0 && (windowState.tupleCount % earlyTriggerCount) == 0) {
               fireTrigger(window, windowState);
             }
           } else {
+            // watermark has arrived, check for late count based trigger
             if (lateTriggerCount > 0 && (windowState.tupleCount % lateTriggerCount) == 0) {
               fireTrigger(window, windowState);
             }
@@ -134,15 +134,21 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   }
 
   @Override
-  public void setDataStorage(WindowedStorage<KeyT, AccumT> storageAgent)
+  public void setDataStorage(WindowedKeyedStorage<KeyT, AccumT> storageAgent)
   {
     this.dataStorage = storageAgent;
   }
 
   @Override
-  public void setRetractionStorage(WindowedStorage<KeyT, AccumT> storageAgent)
+  public void setRetractionStorage(WindowedKeyedStorage<KeyT, AccumT> storageAgent)
   {
     this.retractionStorage = storageAgent;
+  }
+
+  @Override
+  public void setWindowStateStorage(WindowedStorage<WindowState> storageAgent)
+  {
+    this.windowStateMap = storageAgent;
   }
 
   @Override
@@ -158,15 +164,46 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   }
 
   @Override
-  public Tuple.WindowedTuple<InputT> getWindowedValue(InputT input)
+  public Tuple.WindowedTuple<InputT> getWindowedValue(Tuple<InputT> input)
   {
     Tuple.WindowedTuple<InputT> windowedTuple = new Tuple.WindowedTuple<>();
-    windowedTuple.setTimestamp(timestampExtractor.f(input));
+    windowedTuple.setTimestamp(extractTimestamp(input));
     assignWindows(windowedTuple.getWindows(), input);
     return windowedTuple;
   }
 
-  private void assignWindows(List<Window> windows, InputT input)
+  private long extractTimestamp(Tuple<InputT> tuple)
+  {
+    if (timestampExtractor == null) {
+      if (tuple instanceof Tuple.TimestampedTuple) {
+        return ((Tuple.TimestampedTuple) tuple).getTimestamp();
+      } else {
+        throw new IllegalStateException("Cannot extract timestamp from tuple");
+      }
+    } else {
+      return timestampExtractor.f(tuple.getValue());
+    }
+  }
+
+  private KeyT extractKey(InputT input)
+  {
+    if (keyExtractor == null) {
+      if (input instanceof KeyValPair) {
+        return (KeyT)((KeyValPair) input).getKey();
+      } else {
+        return defaultKey();
+      }
+    } else {
+      return keyExtractor.f(input);
+    }
+  }
+
+  protected KeyT defaultKey()
+  {
+    return null;
+  }
+
+  private void assignWindows(List<Window> windows, Tuple<InputT> inputTuple)
   {
     if (windowOption instanceof WindowOption.GlobalWindow) {
 
@@ -174,11 +211,11 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
 
     } else {
 
-      long timestamp = timestampExtractor.f(input);
+      long timestamp = extractTimestamp(inputTuple);
       if (windowOption instanceof WindowOption.TimeWindows) {
 
-        for (Window.TimeWindow window : getTimeWindowsFromTimestamp(timestamp)) {
-          if (!windowStateMap.containsKey(window)) {
+        for (Window.TimeWindow window : getTimeWindowsForTimestamp(timestamp)) {
+          if (!windowStateMap.containsWindow(window)) {
             windowStateMap.put(window, new WindowState());
           }
           windows.add(window);
@@ -188,7 +225,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
 
         WindowOption.SessionWindows sessionWindowOption = (WindowOption.SessionWindows)windowOption;
         SessionWindowedStorage<KeyT, AccumT> sessionStorage = (SessionWindowedStorage<KeyT, AccumT>)dataStorage;
-        KeyT key = keyExtractor.f(input);
+        KeyT key = extractKey(inputTuple.getValue());
         Collection<Map.Entry<Window.SessionWindow, AccumT>> sessionEntries = sessionStorage.getSessionEntries(key, timestamp, sessionWindowOption.getMinGap().getMillis());
         switch (sessionEntries.size()) {
           case 0: {
@@ -199,6 +236,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
             break;
           }
           case 1: {
+            // There is already one existing window within the minimum gap. See whether we need to extend the time of that window
             Map.Entry<Window.SessionWindow, AccumT> sessionWindowEntry = sessionEntries.iterator().next();
             Window.SessionWindow<KeyT> sessionWindow = sessionWindowEntry.getKey();
             if (sessionWindow.getBeginTimestamp() <= timestamp && timestamp < sessionWindow.getBeginTimestamp() + sessionWindow.getDurationMillis()) {
@@ -222,7 +260,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
             break;
           }
           case 2: {
-            // merge the two windows
+            // There are two windows that fall within the minimum gap of the timestamp. We need to merge the two windows
             Map.Entry<Window.SessionWindow, AccumT> sessionWindowEntry1 = sessionEntries.iterator().next();
             Map.Entry<Window.SessionWindow, AccumT> sessionWindowEntry2 = sessionEntries.iterator().next();
             Window.SessionWindow<KeyT> sessionWindow1 = sessionWindowEntry1.getKey();
@@ -252,7 +290,15 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
     }
   }
 
-  private List<Window.TimeWindow> getTimeWindowsFromTimestamp(long timestamp)
+  /**
+   * Returns the list of windows TimeWindows for the given timestamp.
+   * If we are doing sliding windows, this will return multiple windows. Otherwise, only one window will be returned.
+   * Note that this method does not apply to SessionWindows.
+   *
+   * @param timestamp
+   * @return
+   */
+  private List<Window.TimeWindow> getTimeWindowsForTimestamp(long timestamp)
   {
     List<Window.TimeWindow> windows = new ArrayList<>();
     if (windowOption instanceof WindowOption.TimeWindows) {
@@ -313,7 +359,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
     // purge window that are too late to accept any more input
     dataStorage.removeUpTo(horizon);
 
-    for (Iterator<Map.Entry<Window, WindowState>> it = windowStateMap.entrySet().iterator(); it.hasNext(); ) {
+    for (Iterator<Map.Entry<Window, WindowState>> it = windowStateMap.iterator(); it.hasNext(); ) {
       Map.Entry<Window, WindowState> entry = it.next();
       Window window = entry.getKey();
       WindowState windowState = entry.getValue();

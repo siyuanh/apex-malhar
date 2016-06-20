@@ -49,14 +49,21 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    *
    * @param storageAgent
    */
-  void setDataStorage(WindowedStorage<KeyT, AccumT> storageAgent);
+  void setDataStorage(WindowedKeyedStorage<KeyT, AccumT> storageAgent);
 
   /**
    * This method sets the storage for the retraction data for each window. Only used when the accumulation mode is ACCUMULATING_AND_RETRACTING
    *
    * @param storageAgent
    */
-  void setRetractionStorage(WindowedStorage<KeyT, AccumT> storageAgent);
+  void setRetractionStorage(WindowedKeyedStorage<KeyT, AccumT> storageAgent);
+
+  /**
+   * This methods sets the storage for the meta data for each window
+   *
+   * @param storageAgent
+   */
+  void setWindowStateStorage(WindowedStorage<WindowState> storageAgent);
 
   /**
    * This sets the function that extracts the timestamp from the input tuple
@@ -79,7 +86,7 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    * @param input
    * @return
    */
-  Tuple.WindowedTuple<InputT> getWindowedValue(InputT input);
+  Tuple.WindowedTuple<InputT> getWindowedValue(Tuple<InputT> input);
 
   /**
    * This method returns whether the given timestamp is too late for processing.
