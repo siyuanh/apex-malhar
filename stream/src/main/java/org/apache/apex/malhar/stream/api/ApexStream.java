@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.apex.malhar.stream.api.function.Function;
+import org.apache.apex.malhar.stream.window.WindowOption;
 
 import com.datatorrent.api.Attribute;
 import com.datatorrent.api.Context.DAGContext;
@@ -30,7 +31,6 @@ import com.datatorrent.api.Context.OperatorContext;
 import com.datatorrent.api.Context.PortContext;
 import com.datatorrent.api.DAG;
 import com.datatorrent.api.Operator;
-import com.datatorrent.lib.window.WindowOption;
 
 /**
  * The stream interface to build a DAG

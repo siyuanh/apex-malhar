@@ -29,8 +29,8 @@ import org.junit.Test;
 
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.impl.StreamFactory;
+import org.apache.apex.malhar.stream.window.WindowOption;
 
-import com.datatorrent.lib.window.WindowOption;
 
 /**
  * A embedded application test without creating Streaming Application
@@ -77,7 +77,7 @@ public class LocalTestWithoutStreamApplication
             return Arrays.asList(input.split(" "));
           }
         })
-        .window(WindowOption.WindowOptionBuilder.all())
+        .window(new WindowOption.GlobalWindow())
         .countByKey().addOperator(collector, collector.inputPort, collector.outputPort).print().runEmbedded(false, 30000, exitCondition);
 
 

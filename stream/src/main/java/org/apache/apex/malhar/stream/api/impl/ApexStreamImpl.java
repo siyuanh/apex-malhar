@@ -34,6 +34,7 @@ import org.apache.apex.malhar.stream.api.WindowedStream;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.function.Function.FlatMapFunction;
 import org.apache.apex.malhar.stream.api.operator.FunctionOperator;
+import org.apache.apex.malhar.stream.window.WindowOption;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -45,7 +46,6 @@ import com.datatorrent.api.Operator;
 import com.datatorrent.lib.algo.UniqueCounter;
 import com.datatorrent.lib.io.ConsoleOutputOperator;
 import com.datatorrent.lib.util.KeyValPair;
-import com.datatorrent.lib.window.WindowOption;
 import com.datatorrent.stram.StramLocalCluster;
 import com.datatorrent.stram.plan.logical.LogicalPlan;
 

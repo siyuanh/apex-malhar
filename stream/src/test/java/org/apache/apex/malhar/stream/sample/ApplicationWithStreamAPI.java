@@ -23,12 +23,12 @@ import java.util.Arrays;
 import org.apache.apex.malhar.stream.api.ApexStream;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.impl.StreamFactory;
+import org.apache.apex.malhar.stream.window.WindowOption;
 import org.apache.hadoop.conf.Configuration;
 
 import com.datatorrent.api.DAG;
 import com.datatorrent.api.StreamingApplication;
 import com.datatorrent.api.annotation.ApplicationAnnotation;
-import com.datatorrent.lib.window.WindowOption;
 
 /**
  * An application example with stream api
@@ -52,7 +52,7 @@ public class ApplicationWithStreamAPI implements StreamingApplication
           }
         });
     stream.print();
-    stream.window(WindowOption.WindowOptionBuilder.all()).countByKey().print();
+    stream.window(new WindowOption.GlobalWindow()).countByKey().print();
     stream.populateDag(dag);
   }
 }

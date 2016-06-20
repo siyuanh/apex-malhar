@@ -21,13 +21,12 @@ import org.apache.apex.malhar.stream.api.ApexStream;
 import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.impl.StreamFactory;
+import org.apache.apex.malhar.stream.window.WindowOption;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.api.DefaultOutputPort;
 import com.datatorrent.api.InputOperator;
 import com.datatorrent.lib.util.KeyValPair;
-
-import static com.datatorrent.lib.window.WindowOption.WindowOptionBuilder.*;
 
 /**
  * An example that reads the public 'Shakespeare' data, and for each word in
@@ -91,7 +90,7 @@ public class CombinePerKeyExamples {
     public ApexStream<SampleBean> compose(ApexStream<SampleBean> inputStream)
     {
       return inputStream.map(new ExtractLargeWordsFn())
-          .window(all())
+          .window(new WindowOption.GlobalWindow())
           .foldByKey(new Function.FoldFunction<KeyValPair<String, String>, KeyValPair<String, String>>()
           {
             @Override

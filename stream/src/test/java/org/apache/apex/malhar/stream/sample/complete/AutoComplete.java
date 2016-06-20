@@ -24,20 +24,19 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.joda.time.Duration;
+
 import org.apache.apex.malhar.stream.api.ApexStream;
 import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
 import org.apache.apex.malhar.stream.api.WindowedStream;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.impl.StreamFactory;
+import org.apache.apex.malhar.stream.window.WindowOption;
 
 import com.google.common.collect.Sets;
 
 import com.datatorrent.contrib.twitter.TwitterSampleInput;
 import com.datatorrent.lib.util.KeyValPair;
-import com.datatorrent.lib.window.WindowOption;
-
-import static com.datatorrent.lib.window.Quantification.TimeUnit.*;
-import static com.datatorrent.lib.window.WindowOption.WindowOptionBuilder.*;
 
 /**
  * An example that computes the most popular hash tags
@@ -140,7 +139,7 @@ public class AutoComplete
     public ApexStream<Map.Entry<String, List<CompletionCandidate>>> compose(
         ApexStream<CompletionCandidate> input)
     {
-      return input.map(new AllPrefixes(minPrefix)).window(all()).topByKey(1);
+      return input.map(new AllPrefixes(minPrefix)).window(new WindowOption.GlobalWindow()).topByKey(1);
     }
   }
 
@@ -232,8 +231,8 @@ public class AutoComplete
     TwitterSampleInput input = new TwitterSampleInput();
 
     WindowOption windowOption = stream
-        ? WindowOption.WindowOptionBuilder.intoEvery(30, MINUTE).slideBy(5, MILLISECOND)
-        : all();
+        ? new WindowOption.TimeWindows(Duration.standardMinutes(30)).slideBy(Duration.standardSeconds(5))
+        : new WindowOption.GlobalWindow();
 
     StreamFactory.fromInput(new TwitterSampleInput(), input.text)
         .flatMap(new ExtractHashtags())

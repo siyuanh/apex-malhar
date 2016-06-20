@@ -27,13 +27,10 @@ import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
 import org.apache.apex.malhar.stream.api.WindowedStream;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.impl.StreamFactory;
+import org.apache.apex.malhar.stream.window.TriggerOption;
+import org.apache.apex.malhar.stream.window.WindowOption;
 
 import com.datatorrent.lib.util.KeyValPair;
-import com.datatorrent.lib.window.Quantification;
-import com.datatorrent.lib.window.TriggerOption;
-import com.datatorrent.lib.window.WindowOption;
-
-import static com.datatorrent.lib.window.WindowOption.WindowOptionBuilder.*;
 
 /**
  * This example illustrates the basic concepts behind triggering. It shows how to use different
@@ -191,11 +188,11 @@ public class TriggerExample {
       // late, and dropped.
 
       ApexStream<SampleBean> defaultTriggerResults = inputStream
-          .window(intoEvery(windowDuration, Quantification.TimeUnit.MINUTE)
-              .emitUpdate(null)
-              .setAccumulationMode(WindowOption.AccumulationMode.DISCARD)
-              .withLateness(new Object[]{0, Quantification.TimeUnit.SECOND}))
-              .addCompositeStreams(new TotalFlow("default"));
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
+              .triggering(null)
+              .discardingFiredPanes()
+              .withAllowedLateness(Duration.ZERO))
+          .addCompositeStreams(new TotalFlow("default"));
 
 
 
@@ -218,10 +215,10 @@ public class TriggerExample {
       // 5             | 20                 | 1                 | false   | false  | LATE
       // 5             | 60                 | 1                 | false   | false  | LATE
       ApexStream<SampleBean> withAllowedLatenessResults = inputStream
-          .window(intoEvery(windowDuration, Quantification.TimeUnit.MINUTE)
-              .emitUpdate(TriggerOption.TriggerOptionBuilder.every(1, Quantification.CountableUnit.TUPLE))
-              .setAccumulationMode(WindowOption.AccumulationMode.DISCARD)
-              .withLateness(new Object[]{1, Quantification.TimeUnit.DAY}))
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
+              .triggering(new TriggerOption().withLateFiringsAtEvery(1))
+              .discardingFiredPanes()
+              .withAllowedLateness(Duration.standardDays(1)))
           .addCompositeStreams(new TotalFlow("withAllowedLateness"));
 
 
@@ -243,14 +240,14 @@ public class TriggerExample {
       // 5             | 430                | 10                | false   | false  | LATE
 
       ApexStream<SampleBean> speculativeResults = inputStream
-          .window(intoEvery(windowDuration, Quantification.TimeUnit.MINUTE)
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
               //Trigger fires every minute
-              .emitUpdate(TriggerOption.TriggerOptionBuilder.every(1, Quantification.TimeUnit.MINUTE).is(TriggerOption.WatermarkOpt.BEFORE))
+              .triggering(new TriggerOption().withEarlyFiringsAtEvery(Duration.standardMinutes(1)))
               // After emitting each pane, it will continue accumulating the elements so that each
               // approximation includes all of the previous data in addition to the newly arrived
               // data.
-              .setAccumulationMode(WindowOption.AccumulationMode.ACCUMULATE)
-              .withLateness(new Object[]{1, Quantification.TimeUnit.DAY}))
+              .accumulatingFiredPanes()
+              .withAllowedLateness(Duration.standardDays(1)))
           .addCompositeStreams(new TotalFlow("speculative"));
 
 
@@ -277,16 +274,15 @@ public class TriggerExample {
 
       // For more possibilities of how to build advanced triggers, see {@link Trigger}.
       ApexStream<SampleBean> sequentialResults = inputStream
-          .window(intoEvery(windowDuration, Quantification.TimeUnit.MINUTE)
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
               // Speculative every ONE_MINUTE
-              .emitUpdate(TriggerOption.TriggerOptionBuilder.every(1, Quantification.TimeUnit.MINUTE).is(TriggerOption.WatermarkOpt.BEFORE),
-                  // Late data every FIVE_MINUTES
-                  TriggerOption.TriggerOptionBuilder.every(5, Quantification.TimeUnit.MINUTE).is(TriggerOption.WatermarkOpt.AFTER))
+              .triggering(new TriggerOption().withEarlyFiringsAtEvery(Duration.standardMinutes(1))
+                  .withLateFiringsAtEvery(Duration.standardMinutes(5)))
               // After emitting each pane, it will continue accumulating the elements so that each
               // approximation includes all of the previous data in addition to the newly arrived
               // data.
-              .setAccumulationMode(WindowOption.AccumulationMode.ACCUMULATE)
-              .withLateness(new Object[]{1, Quantification.TimeUnit.DAY}))
+              .accumulatingFiredPanes()
+              .withAllowedLateness(Duration.standardDays(1)))
           .addCompositeStreams(new TotalFlow("sequential"));
 
       return sequentialResults;
