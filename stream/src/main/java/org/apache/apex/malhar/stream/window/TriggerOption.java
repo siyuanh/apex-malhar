@@ -18,6 +18,8 @@
  */
 package org.apache.apex.malhar.stream.window;
 
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.joda.time.Duration;
 
@@ -48,7 +50,12 @@ public class TriggerOption
 
   public static class Trigger
   {
-    final WatermarkOpt watermarkOpt;
+    protected WatermarkOpt watermarkOpt;
+
+    Trigger()
+    {
+      // for kryo
+    }
 
     Trigger(WatermarkOpt watermarkOpt)
     {
@@ -63,7 +70,13 @@ public class TriggerOption
 
   public static class TimeTrigger extends Trigger
   {
+    @FieldSerializer.Bind(JavaSerializer.class)
     Duration duration;
+
+    public TimeTrigger()
+    {
+      // for kryo
+    }
 
     public TimeTrigger(WatermarkOpt watermarkOpt, Duration duration)
     {
@@ -80,6 +93,10 @@ public class TriggerOption
   public static class CountTrigger extends Trigger
   {
     long count;
+    public CountTrigger()
+    {
+      //for kryo
+    }
 
     public CountTrigger(WatermarkOpt watermarkOpt, long count)
     {

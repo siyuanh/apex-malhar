@@ -20,7 +20,8 @@ public class InMemoryWindowedKeyedStorage<K, V> extends InMemoryWindowedStorage<
     if (map.containsKey(window)) {
       kvMap = map.get(window);
     } else {
-      kvMap = map.put(window, new HashMap<K, V>());
+      kvMap = new HashMap<K, V>();
+      map.put(window, kvMap);
     }
     kvMap.put(key, value);
   }

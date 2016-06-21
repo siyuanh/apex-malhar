@@ -37,6 +37,12 @@ public interface Tuple<T>
     {
       this.value = value;
     }
+
+    @Override
+    public String toString()
+    {
+      return value.toString();
+    }
   }
 
   class TimestampedTuple<T> extends PlainTuple<T>

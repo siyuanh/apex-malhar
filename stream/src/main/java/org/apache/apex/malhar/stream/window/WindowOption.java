@@ -18,6 +18,8 @@
  */
 package org.apache.apex.malhar.stream.window;
 
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.joda.time.Duration;
 
@@ -39,6 +41,7 @@ public abstract class WindowOption
 
   private AccumulationMode accumulationMode = AccumulationMode.DISCARDING;
 
+  @FieldSerializer.Bind(JavaSerializer.class)
   private Duration allowedLateness;
 
   public enum AccumulationMode
@@ -54,6 +57,7 @@ public abstract class WindowOption
 
   public static class TimeWindows extends WindowOption
   {
+    @FieldSerializer.Bind(JavaSerializer.class)
     private final Duration duration;
 
     public TimeWindows(Duration duration)
@@ -74,6 +78,7 @@ public abstract class WindowOption
 
   public static class SlidingTimeWindows extends TimeWindows
   {
+    @FieldSerializer.Bind(JavaSerializer.class)
     private Duration slideByDuration;
 
     public SlidingTimeWindows(Duration size, Duration slideByDuration)
@@ -93,6 +98,7 @@ public abstract class WindowOption
 
   public static class SessionWindows extends WindowOption
   {
+    @FieldSerializer.Bind(JavaSerializer.class)
     private Duration minGap;
 
     public SessionWindows(Duration minGap)

@@ -20,8 +20,6 @@ package org.apache.apex.malhar.stream.window;
 
 import org.apache.hadoop.classification.InterfaceStability;
 
-import java.util.Timer;
-
 /**
  * The state that needs to be stored for each window. The state helps determine whether to throw away a window
  * (with allowed lateness in WindowOption), and whether to fire a trigger (with TriggerOption)
@@ -40,12 +38,7 @@ public class WindowState
   public long lastTriggerFiredTime = -1;
 
   /**
-   * The tuple count when the last trigger was fired
-   */
-  public long lastTriggerFiredTupleCount = 0;
-
-  /**
-   * The tuple count. Should be increment for every tuple that belongs to the associated window
+   * The tuple count. Should be incremented for every tuple that belongs to the associated window
    */
   public long tupleCount = 0;
 

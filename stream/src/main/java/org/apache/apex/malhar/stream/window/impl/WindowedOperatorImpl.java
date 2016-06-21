@@ -53,7 +53,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   private long firstWindowMillis;
   private long windowWidthMillis;
 
-  public transient DefaultInputPort<Tuple<InputT>> input = new DefaultInputPort<Tuple<InputT>>()
+  public final transient DefaultInputPort<Tuple<InputT>> input = new DefaultInputPort<Tuple<InputT>>()
   {
     @Override
     public void process(Tuple<InputT> tuple)
@@ -64,14 +64,14 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
 
   // TODO: multiple input ports for join operations
 
-  public transient DefaultOutputPort<Tuple<OutputT>> output = new DefaultOutputPort<>();
+  public final transient DefaultOutputPort<Tuple<OutputT>> output = new DefaultOutputPort<>();
 
   protected void processTuple(Tuple<InputT> tuple)
   {
     if (tuple instanceof Tuple.WatermarkTuple) {
       processWatermark((Tuple.WatermarkTuple<InputT>) tuple);
     } else {
-      long timestamp = timestampExtractor.f(tuple.getValue());
+      long timestamp = extractTimestamp(tuple);
       if (isTooLate(timestamp)) {
         dropTuple(tuple);
       } else {
@@ -103,6 +103,9 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   public void setWindowOption(WindowOption windowOption)
   {
     this.windowOption = windowOption;
+    if (this.windowOption instanceof WindowOption.GlobalWindow) {
+      windowStateMap.put(Window.GLOBAL_WINDOW, new WindowState());
+    }
     TriggerOption triggerOption = this.windowOption.getTriggerOption();
     for (TriggerOption.Trigger trigger : triggerOption.getTriggerList()) {
       switch (trigger.getWatermarkOpt()) {
@@ -167,6 +170,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   public Tuple.WindowedTuple<InputT> getWindowedValue(Tuple<InputT> input)
   {
     Tuple.WindowedTuple<InputT> windowedTuple = new Tuple.WindowedTuple<>();
+    windowedTuple.setValue(input.getValue());
     windowedTuple.setTimestamp(extractTimestamp(input));
     assignWindows(windowedTuple.getWindows(), input);
     return windowedTuple;
@@ -178,7 +182,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
       if (tuple instanceof Tuple.TimestampedTuple) {
         return ((Tuple.TimestampedTuple) tuple).getTimestamp();
       } else {
-        throw new IllegalStateException("Cannot extract timestamp from tuple");
+        return 0;
       }
     } else {
       return timestampExtractor.f(tuple.getValue());
@@ -331,7 +335,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   public boolean isTooLate(long timestamp)
   {
     Duration allowedLateness = windowOption.getAllowedLateness();
-    return timestamp < currentWatermark - allowedLateness.getMillis();
+    return allowedLateness == null ? false : (timestamp < currentWatermark - allowedLateness.getMillis());
   }
 
   @Override
@@ -343,10 +347,13 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   @Override
   public void accumulateTuple(Tuple.WindowedTuple<InputT> tuple)
   {
-    KeyT key = keyExtractor.f(tuple.getValue());
+    KeyT key = extractKey(tuple.getValue());
     for (Window window : tuple.getWindows()) {
       // process each window
       AccumT accum = dataStorage.get(window, key);
+      if (accum == null) {
+        accum = accumulation.defaultAccumulatedValue();
+      }
       dataStorage.put(window, key, accumulation.accumulate(accum, tuple.getValue()));
     }
   }
@@ -445,7 +452,6 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
       }
     }
     windowState.lastTriggerFiredTime = WindowGenerator.getWindowMillis(currentApexWindowId, firstWindowMillis, windowWidthMillis);;
-    windowState.lastTriggerFiredTupleCount = windowState.tupleCount;
     if (windowOption.getAccumulationMode() == WindowOption.AccumulationMode.DISCARDING) {
       clearWindowData(window);
     }
