@@ -13,6 +13,8 @@ import com.datatorrent.common.util.BaseOperator;
 import com.datatorrent.lib.util.KeyValPair;
 import com.datatorrent.stram.engine.WindowGenerator;
 import com.datatorrent.stram.plan.logical.LogicalPlan;
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.window.Accumulation;
 import org.apache.apex.malhar.stream.window.SessionWindowedStorage;
@@ -35,6 +37,11 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
 {
 
   private WindowOption windowOption;
+
+  private TriggerOption triggerOption;
+
+  private long allowedLatenessMillis = -1;
+
   private Accumulation<InputT, AccumT, OutputT> accumulation;
   private WindowedKeyedStorage<KeyT, AccumT> dataStorage;
   private WindowedKeyedStorage<KeyT, AccumT> retractionStorage;
@@ -106,7 +113,12 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
     if (this.windowOption instanceof WindowOption.GlobalWindow) {
       windowStateMap.put(Window.GLOBAL_WINDOW, new WindowState());
     }
-    TriggerOption triggerOption = this.windowOption.getTriggerOption();
+  }
+
+  @Override
+  public void setTriggerOption(TriggerOption triggerOption)
+  {
+    this.triggerOption = triggerOption;
     for (TriggerOption.Trigger trigger : triggerOption.getTriggerList()) {
       switch (trigger.getWatermarkOpt()) {
         case ON_TIME:
@@ -128,6 +140,12 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
           break;
       }
     }
+  }
+
+  @Override
+  public void setAllowedLateness(Duration allowedLateness)
+  {
+    this.allowedLatenessMillis = allowedLateness.getMillis();
   }
 
   @Override
@@ -248,7 +266,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
               windows.add(sessionWindow);
             } else {
               // The session window does not cover the event but is within the min gap
-              if (windowOption.getAccumulationMode() == WindowOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
+              if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
                 // fire a retraction trigger because the session window will be enlarged
                 fireRetractionTrigger(sessionWindow);
               }
@@ -271,7 +289,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
             Window.SessionWindow<KeyT> sessionWindow2 = sessionWindowEntry2.getKey();
             AccumT sessionData1 = sessionWindowEntry1.getValue();
             AccumT sessionData2 = sessionWindowEntry1.getValue();
-            if (windowOption.getAccumulationMode() == WindowOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
+            if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
               // fire a retraction trigger because the two session windows will be merged to a new window
               fireRetractionTrigger(sessionWindow1);
               fireRetractionTrigger(sessionWindow2);
@@ -334,8 +352,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   @Override
   public boolean isTooLate(long timestamp)
   {
-    Duration allowedLateness = windowOption.getAllowedLateness();
-    return allowedLateness == null ? false : (timestamp < currentWatermark - allowedLateness.getMillis());
+    return allowedLatenessMillis < 0 ? false : (timestamp < currentWatermark - allowedLatenessMillis);
   }
 
   @Override
@@ -362,15 +379,17 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   public void processWatermark(Tuple.WatermarkTuple<InputT> watermark)
   {
     currentWatermark = watermark.getTimestamp();
-    long horizon = currentWatermark - windowOption.getAllowedLateness().getMillis();
-    // purge window that are too late to accept any more input
-    dataStorage.removeUpTo(horizon);
+    long horizon = currentWatermark - allowedLatenessMillis;
+    if (allowedLatenessMillis >= 0) {
+      // purge window that are too late to accept any more input
+      dataStorage.removeUpTo(horizon);
+    }
 
     for (Iterator<Map.Entry<Window, WindowState>> it = windowStateMap.iterator(); it.hasNext(); ) {
       Map.Entry<Window, WindowState> entry = it.next();
       Window window = entry.getKey();
       WindowState windowState = entry.getValue();
-      if (window.getBeginTimestamp() + window.getDurationMillis() < horizon) {
+      if (allowedLatenessMillis >= 0 && window.getBeginTimestamp() + window.getDurationMillis() < horizon) {
         // discard this window because it's too late now
         it.remove();
       } else if (window.getBeginTimestamp() + window.getDurationMillis() < currentWatermark) {
@@ -442,7 +461,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   @Override
   public void fireTrigger(Window window, WindowState windowState)
   {
-    if (windowOption.getAccumulationMode() == WindowOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
+    if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
       fireRetractionTrigger(window);
     }
     for (Map.Entry<KeyT, AccumT> entry : dataStorage.entrySet(window)) {
@@ -452,7 +471,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
       }
     }
     windowState.lastTriggerFiredTime = WindowGenerator.getWindowMillis(currentApexWindowId, firstWindowMillis, windowWidthMillis);;
-    if (windowOption.getAccumulationMode() == WindowOption.AccumulationMode.DISCARDING) {
+    if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.DISCARDING) {
       clearWindowData(window);
     }
   }
@@ -460,7 +479,7 @@ public class WindowedOperatorImpl<InputT, KeyT, AccumT, OutputT>
   @Override
   public void fireRetractionTrigger(Window window)
   {
-    if (windowOption.getAccumulationMode() != WindowOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
+    if (triggerOption.getAccumulationMode() != TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
       throw new UnsupportedOperationException();
     }
     for (Map.Entry<KeyT, AccumT> entry : retractionStorage.entrySet(window)) {

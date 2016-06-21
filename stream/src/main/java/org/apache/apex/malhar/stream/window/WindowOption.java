@@ -37,19 +37,7 @@ public abstract class WindowOption
 {
   // TODO: We might not want to include the TriggerOption, the AccumulationMode and the AllowedLateness in the WindowOption since the input of the operator might already be a WindowedTuple from upstream. Need further discussion
 
-  private TriggerOption triggerOption;
 
-  private AccumulationMode accumulationMode = AccumulationMode.DISCARDING;
-
-  @FieldSerializer.Bind(JavaSerializer.class)
-  private Duration allowedLateness;
-
-  public enum AccumulationMode
-  {
-    DISCARDING,
-    ACCUMULATING,
-    ACCUMULATING_AND_RETRACTING
-  }
 
   public static class GlobalWindow extends WindowOption
   {
@@ -112,49 +100,4 @@ public abstract class WindowOption
     }
   }
 
-  // Pre-defined trigger emit tuple
-  public WindowOption triggering(TriggerOption option)
-  {
-    triggerOption = option;
-    return this;
-  }
-
-  public WindowOption discardingFiredPanes()
-  {
-    this.accumulationMode = AccumulationMode.DISCARDING;
-    return this;
-  }
-
-  public WindowOption accumulatingFiredPanes()
-  {
-    this.accumulationMode = AccumulationMode.ACCUMULATING;
-    return this;
-  }
-
-  public WindowOption accumulatingAndRetractingFiredPane()
-  {
-    this.accumulationMode = AccumulationMode.ACCUMULATING_AND_RETRACTING;
-    return this;
-  }
-
-  public WindowOption withAllowedLateness(Duration duration)
-  {
-    this.allowedLateness = duration;
-    return this;
-  }
-
-  public Duration getAllowedLateness()
-  {
-    return this.allowedLateness;
-  }
-
-  public AccumulationMode getAccumulationMode()
-  {
-    return this.accumulationMode;
-  }
-
-  public TriggerOption getTriggerOption()
-  {
-    return triggerOption;
-  }
 }

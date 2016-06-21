@@ -20,6 +20,7 @@ package org.apache.apex.malhar.stream.window;
 
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.joda.time.Duration;
 
 /**
  * This interface describes what needs to be implemented for the operator that supports the Apache Beam model of
@@ -35,6 +36,20 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    * @param windowOption
    */
   void setWindowOption(WindowOption windowOption);
+
+  /**
+   * Sets the TriggerOption of this operator
+   *
+   * @param triggerOption
+   */
+  void setTriggerOption(TriggerOption triggerOption);
+
+  /**
+   * Sets the allowed lateness of this operator
+   *
+   * @param allowedLateness
+   */
+  void setAllowedLateness(Duration allowedLateness);
 
   /**
    * Sets the accumulation, which basically tells the WindowedOperator what to do if a new tuple comes in and what

@@ -85,7 +85,8 @@ public class Application implements StreamingApplication
     windowedOperator.setAccumulation(piAccumulation);
     windowedOperator.setDataStorage(new InMemoryWindowedKeyedStorage<Void, MutablePair<Long, Long>>());
     windowedOperator.setWindowStateStorage(new InMemoryWindowedStorage<WindowState>());
-    windowedOperator.setWindowOption(new WindowOption.GlobalWindow().triggering(new TriggerOption().withEarlyFiringsAtEvery(Duration.millis(1000))).accumulatingFiredPanes());
+    windowedOperator.setWindowOption(new WindowOption.GlobalWindow());
+    windowedOperator.setTriggerOption(TriggerOption.AtWatermark().withEarlyFiringsAtEvery(Duration.millis(1000)).accumulatingFiredPanes());
 
     ConsoleOutputOperator outputOperator = new ConsoleOutputOperator();
     dag.addOperator("inputOperator", inputOperator);

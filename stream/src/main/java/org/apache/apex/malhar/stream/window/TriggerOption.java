@@ -37,6 +37,14 @@ import java.util.List;
 @InterfaceStability.Evolving
 public class TriggerOption
 {
+  public enum AccumulationMode
+  {
+    DISCARDING,
+    ACCUMULATING,
+    ACCUMULATING_AND_RETRACTING
+  }
+
+  private AccumulationMode accumulationMode = AccumulationMode.DISCARDING;
 
   /**
    * Whether the trigger should be fired before the watermark, at the watermark, or after the watermark
@@ -175,6 +183,29 @@ public class TriggerOption
     CountTrigger trigger = new CountTrigger(WatermarkOpt.LATE, count);
     triggerList.add(trigger);
     return this;
+  }
+
+  public TriggerOption discardingFiredPanes()
+  {
+    this.accumulationMode = AccumulationMode.DISCARDING;
+    return this;
+  }
+
+  public TriggerOption accumulatingFiredPanes()
+  {
+    this.accumulationMode = AccumulationMode.ACCUMULATING;
+    return this;
+  }
+
+  public TriggerOption accumulatingAndRetractingFiredPane()
+  {
+    this.accumulationMode = AccumulationMode.ACCUMULATING_AND_RETRACTING;
+    return this;
+  }
+
+  public AccumulationMode getAccumulationMode()
+  {
+    return accumulationMode;
   }
 
   /**
