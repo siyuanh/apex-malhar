@@ -27,7 +27,7 @@ import org.joda.time.Duration;
  * windowing and triggering
  */
 @InterfaceStability.Evolving
-public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
+public interface WindowedOperator<InputT, AccumT, OutputT>
 {
 
   /**
@@ -52,28 +52,6 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
   void setAllowedLateness(Duration allowedLateness);
 
   /**
-   * Sets the accumulation, which basically tells the WindowedOperator what to do if a new tuple comes in and what
-   * to put in the pane when a trigger is fired
-   *
-   * @param accumulation
-   */
-  void setAccumulation(Accumulation<InputT, AccumT, OutputT> accumulation);
-
-  /**
-   * This method sets the storage for the data for each window
-   *
-   * @param storageAgent
-   */
-  void setDataStorage(WindowedKeyedStorage<KeyT, AccumT> storageAgent);
-
-  /**
-   * This method sets the storage for the retraction data for each window. Only used when the accumulation mode is ACCUMULATING_AND_RETRACTING
-   *
-   * @param storageAgent
-   */
-  void setRetractionStorage(WindowedKeyedStorage<KeyT, AccumT> storageAgent);
-
-  /**
    * This methods sets the storage for the meta data for each window
    *
    * @param storageAgent
@@ -86,14 +64,6 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    * @param timestampExtractor
    */
   void setTimestampExtractor(Function.MapFunction<InputT, Long> timestampExtractor);
-
-  /**
-   * This sets the function that extracts the key from the input tuple. If this is not set, assume that the
-   * input is not keyed.
-   *
-   * @param keyExtractor
-   */
-  void setKeyExtractor(Function.MapFunction<InputT, KeyT> keyExtractor);
 
   /**
    * Assign window(s) for this input tuple
@@ -145,14 +115,6 @@ public interface WindowedOperator<InputT, KeyT, AccumT, OutputT>
    * @param window
    */
   void fireTrigger(Window window, WindowState windowState);
-
-  /**
-   * This method fires the retraction trigger for the given window. This should only be valid if the accumulation
-   * mode is ACCUMULATING_AND_RETRACTING
-   *
-   * @param window
-   */
-  void fireRetractionTrigger(Window window);
 
   /**
    * This method clears the window data in the storage.

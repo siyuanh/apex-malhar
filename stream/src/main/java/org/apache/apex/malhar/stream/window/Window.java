@@ -74,8 +74,13 @@ public interface Window
    */
   class TimeWindow implements Window
   {
-    protected final long beginTimestamp;
-    protected final long durationMillis;
+    protected long beginTimestamp;
+    protected long durationMillis;
+
+    private TimeWindow()
+    {
+      // for kryo
+    }
 
     public TimeWindow(long beginTimestamp, long durationMillis)
     {
@@ -113,7 +118,12 @@ public interface Window
    */
   class SessionWindow<K> extends TimeWindow
   {
-    private final K key;
+    private K key;
+
+    private SessionWindow()
+    {
+      // for kryo
+    }
 
     public SessionWindow(K key, long beginTimestamp, long duration)
     {

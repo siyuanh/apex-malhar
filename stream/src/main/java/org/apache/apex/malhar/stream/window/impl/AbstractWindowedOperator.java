@@ -1,0 +1,412 @@
+package org.apache.apex.malhar.stream.window.impl;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import com.datatorrent.api.Context;
+import com.datatorrent.api.DefaultInputPort;
+import com.datatorrent.api.DefaultOutputPort;
+import com.datatorrent.common.util.BaseOperator;
+import com.datatorrent.stram.engine.WindowGenerator;
+import com.datatorrent.stram.plan.logical.LogicalPlan;
+import org.apache.apex.malhar.stream.api.function.Function;
+import org.apache.apex.malhar.stream.window.Accumulation;
+import org.apache.apex.malhar.stream.window.Tuple;
+import org.apache.apex.malhar.stream.window.TriggerOption;
+import org.apache.apex.malhar.stream.window.Window;
+import org.apache.apex.malhar.stream.window.WindowOption;
+import org.apache.apex.malhar.stream.window.WindowState;
+import org.apache.apex.malhar.stream.window.WindowedOperator;
+import org.apache.apex.malhar.stream.window.WindowedStorage;
+import org.joda.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+/**
+ * Created by david on 6/13/16.
+ */
+public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStorageT extends WindowedStorage, AccumulationT extends Accumulation>
+    extends BaseOperator implements WindowedOperator<InputT, AccumT, OutputT>
+{
+
+  protected WindowOption windowOption;
+  protected TriggerOption triggerOption;
+  protected long allowedLatenessMillis = -1;
+  protected WindowedStorage<WindowState> windowStateMap;
+
+  private Function.MapFunction<InputT, Long> timestampExtractor;
+
+  private long currentWatermark;
+  private boolean triggerAtWatermark;
+  private long earlyTriggerCount;
+  private long earlyTriggerMillis;
+  private long lateTriggerCount;
+  private long lateTriggerMillis;
+  private long currentApexWindowId = -1;
+  private long currentDerivedTimestamp;
+  private long firstWindowMillis;
+  private long windowWidthMillis;
+  protected DataStorageT dataStorage;
+  protected DataStorageT retractionStorage;
+  protected AccumulationT accumulation;
+
+  private static final transient Logger LOG = LoggerFactory.getLogger(AbstractWindowedOperator.class);
+
+  public final transient DefaultInputPort<Tuple<InputT>> input = new DefaultInputPort<Tuple<InputT>>()
+  {
+    @Override
+    public void process(Tuple<InputT> tuple)
+    {
+      processTuple(tuple);
+    }
+  };
+
+  // TODO: multiple input ports for join operations
+
+  public final transient DefaultOutputPort<Tuple<OutputT>> output = new DefaultOutputPort<>();
+
+  protected void processTuple(Tuple<InputT> tuple)
+  {
+    if (tuple instanceof Tuple.WatermarkTuple) {
+      processWatermark((Tuple.WatermarkTuple<InputT>) tuple);
+    } else {
+      long timestamp = extractTimestamp(tuple);
+      if (isTooLate(timestamp)) {
+        dropTuple(tuple);
+      } else {
+        Tuple.WindowedTuple<InputT> windowedTuple = getWindowedValue(tuple);
+        // do the accumulation
+        accumulateTuple(windowedTuple);
+
+        for (Window window : windowedTuple.getWindows()) {
+          WindowState windowState = windowStateMap.get(window);
+          windowState.tupleCount++;
+          // process any count based triggers
+          if (windowState.watermarkArrivalTime == -1) {
+            // watermark has not arrived yet, check for early count based trigger
+            if (earlyTriggerCount > 0 && (windowState.tupleCount % earlyTriggerCount) == 0) {
+              fireTrigger(window, windowState);
+            }
+          } else {
+            // watermark has arrived, check for late count based trigger
+            if (lateTriggerCount > 0 && (windowState.tupleCount % lateTriggerCount) == 0) {
+              fireTrigger(window, windowState);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Override
+  public void setWindowOption(WindowOption windowOption)
+  {
+    this.windowOption = windowOption;
+    if (this.windowOption instanceof WindowOption.GlobalWindow) {
+      windowStateMap.put(Window.GLOBAL_WINDOW, new WindowState());
+    }
+  }
+
+  @Override
+  public void setTriggerOption(TriggerOption triggerOption)
+  {
+    this.triggerOption = triggerOption;
+    for (TriggerOption.Trigger trigger : triggerOption.getTriggerList()) {
+      switch (trigger.getWatermarkOpt()) {
+        case ON_TIME:
+          triggerAtWatermark = true;
+          break;
+        case EARLY:
+          if (trigger instanceof TriggerOption.TimeTrigger) {
+            earlyTriggerMillis = ((TriggerOption.TimeTrigger) trigger).getDuration().getMillis();
+          } else if (trigger instanceof TriggerOption.CountTrigger) {
+            earlyTriggerCount = ((TriggerOption.CountTrigger)trigger).getCount();
+          }
+          break;
+        case LATE:
+          if (trigger instanceof TriggerOption.TimeTrigger) {
+            lateTriggerMillis = ((TriggerOption.TimeTrigger) trigger).getDuration().getMillis();
+          } else if (trigger instanceof TriggerOption.CountTrigger) {
+            lateTriggerCount = ((TriggerOption.CountTrigger)trigger).getCount();
+          }
+          break;
+      }
+    }
+  }
+
+  @Override
+  public void setAllowedLateness(Duration allowedLateness)
+  {
+    this.allowedLatenessMillis = allowedLateness.getMillis();
+  }
+
+  /**
+   * This method sets the storage for the data for each window
+   *
+   * @param storageAgent
+   */
+  public void setDataStorage(DataStorageT storageAgent)
+  {
+    this.dataStorage = storageAgent;
+  }
+
+  /**
+   * This method sets the storage for the retraction data for each window. Only used when the accumulation mode is ACCUMULATING_AND_RETRACTING
+   *
+   * @param storageAgent
+   */
+  public void setRetractionStorage(DataStorageT storageAgent)
+  {
+    this.retractionStorage = storageAgent;
+  }
+
+  /**
+   * Sets the accumulation, which basically tells the WindowedOperator what to do if a new tuple comes in and what
+   * to put in the pane when a trigger is fired
+   *
+   * @param accumulation
+   */
+  public void setAccumulation(AccumulationT accumulation)
+  {
+    this.accumulation = accumulation;
+  }
+
+  @Override
+  public void setWindowStateStorage(WindowedStorage<WindowState> storageAgent)
+  {
+    this.windowStateMap = storageAgent;
+  }
+
+  @Override
+  public void setTimestampExtractor(Function.MapFunction<InputT, Long> timestampExtractor)
+  {
+    this.timestampExtractor = timestampExtractor;
+  }
+
+  @Override
+  public Tuple.WindowedTuple<InputT> getWindowedValue(Tuple<InputT> input)
+  {
+    Tuple.WindowedTuple<InputT> windowedTuple = new Tuple.WindowedTuple<>();
+    windowedTuple.setValue(input.getValue());
+    windowedTuple.setTimestamp(extractTimestamp(input));
+    assignWindows(windowedTuple.getWindows(), input);
+    return windowedTuple;
+  }
+
+  private long extractTimestamp(Tuple<InputT> tuple)
+  {
+    if (timestampExtractor == null) {
+      if (tuple instanceof Tuple.TimestampedTuple) {
+        return ((Tuple.TimestampedTuple)tuple).getTimestamp();
+      } else {
+        return 0;
+      }
+    } else {
+      return timestampExtractor.f(tuple.getValue());
+    }
+  }
+
+  private void assignWindows(List<Window> windows, Tuple<InputT> inputTuple)
+  {
+    if (windowOption instanceof WindowOption.GlobalWindow) {
+      windows.add(Window.GLOBAL_WINDOW);
+    } else {
+      long timestamp = extractTimestamp(inputTuple);
+      if (windowOption instanceof WindowOption.TimeWindows) {
+
+        for (Window.TimeWindow window : getTimeWindowsForTimestamp(timestamp)) {
+          if (!windowStateMap.containsWindow(window)) {
+            windowStateMap.put(window, new WindowState());
+          }
+          windows.add(window);
+        }
+      } else if (windowOption instanceof WindowOption.SessionWindows) {
+        assignSessionWindows(windows, timestamp, inputTuple);
+      }
+    }
+  }
+
+  protected void assignSessionWindows(List<Window> windows, long timestamp, Tuple<InputT> inputTuple)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Returns the list of windows TimeWindows for the given timestamp.
+   * If we are doing sliding windows, this will return multiple windows. Otherwise, only one window will be returned.
+   * Note that this method does not apply to SessionWindows.
+   *
+   * @param timestamp
+   * @return
+   */
+  private List<Window.TimeWindow> getTimeWindowsForTimestamp(long timestamp)
+  {
+    List<Window.TimeWindow> windows = new ArrayList<>();
+    if (windowOption instanceof WindowOption.TimeWindows) {
+      long durationMillis = ((WindowOption.TimeWindows) windowOption).getDuration().getMillis();
+      long beginTimestamp = timestamp - timestamp % durationMillis;
+      windows.add(new Window.TimeWindow(beginTimestamp, durationMillis));
+      if (windowOption instanceof WindowOption.SlidingTimeWindows) {
+        long slideBy = ((WindowOption.SlidingTimeWindows) windowOption).getSlideByDuration().getMillis();
+        // add the sliding windows front and back
+        // Note: this messes up the order of the window and we might want to revisit this if the order of the windows
+        // matter
+        for (long slideBeginTimestamp = beginTimestamp - slideBy;
+             slideBeginTimestamp >= timestamp && timestamp > slideBeginTimestamp + durationMillis;
+             slideBeginTimestamp -= slideBy) {
+          windows.add(new Window.TimeWindow(slideBeginTimestamp, durationMillis));
+        }
+        for (long slideBeginTimestamp = beginTimestamp + slideBy;
+             slideBeginTimestamp >= timestamp && timestamp > slideBeginTimestamp + durationMillis;
+             slideBeginTimestamp += slideBy) {
+          windows.add(new Window.TimeWindow(slideBeginTimestamp, durationMillis));
+        }
+      }
+    } else {
+      throw new IllegalStateException("Unexpected WindowOption");
+    }
+    return windows;
+  }
+
+  @Override
+  public boolean isTooLate(long timestamp)
+  {
+    return allowedLatenessMillis < 0 ? false : (timestamp < currentWatermark - allowedLatenessMillis);
+  }
+
+  @Override
+  public void dropTuple(Tuple<InputT> input)
+  {
+    // do nothing
+    LOG.debug("##################### Dropping late tuple {}", input);
+  }
+
+
+  @Override
+  public void processWatermark(Tuple.WatermarkTuple<InputT> watermark)
+  {
+    currentWatermark = watermark.getTimestamp();
+    long horizon = currentWatermark - allowedLatenessMillis;
+    if (allowedLatenessMillis >= 0) {
+      // purge window that are too late to accept any more input
+      dataStorage.removeUpTo(horizon);
+    }
+
+    for (Iterator<Map.Entry<Window, WindowState>> it = windowStateMap.iterator(); it.hasNext(); ) {
+      Map.Entry<Window, WindowState> entry = it.next();
+      Window window = entry.getKey();
+      WindowState windowState = entry.getValue();
+      if (allowedLatenessMillis >= 0 && window.getBeginTimestamp() + window.getDurationMillis() < horizon) {
+        // discard this window because it's too late now
+        it.remove();
+      } else if (window.getBeginTimestamp() + window.getDurationMillis() < currentWatermark) {
+        // watermark has not arrived for this window before, marking this window late
+        if (windowState.watermarkArrivalTime == -1) {
+          windowState.watermarkArrivalTime = currentDerivedTimestamp;
+          if (triggerAtWatermark) {
+            // fire trigger at watermark if applicable
+            fireTrigger(window, windowState);
+          }
+        }
+      }
+    }
+    output.emit((Tuple.WatermarkTuple<OutputT>)watermark);
+  }
+
+  @Override
+  public void setup(Context.OperatorContext context)
+  {
+    if (this.firstWindowMillis <= 0) {
+      this.firstWindowMillis = System.currentTimeMillis();
+    }
+    this.windowWidthMillis = context.getValue(LogicalPlan.STREAMING_WINDOW_SIZE_MILLIS);
+  }
+
+  /**
+   * This is for the Apex streaming/application window. Do not confuse this with the windowing concept in this operator
+   */
+  @Override
+  public void beginWindow(long windowId)
+  {
+    this.currentApexWindowId = windowId;
+    this.currentDerivedTimestamp = WindowGenerator.getWindowMillis(currentApexWindowId, firstWindowMillis, windowWidthMillis);
+  }
+
+  /**
+   * This is for the Apex streaming/application window. Do not confuse this with the windowing concept in this operator
+   */
+  @Override
+  public void endWindow()
+  {
+    fireTimeTriggers();
+  }
+
+  private void fireTimeTriggers()
+  {
+    if (earlyTriggerMillis > 0 || lateTriggerMillis > 0) {
+      for (Map.Entry<Window, WindowState> entry : windowStateMap.entrySet()) {
+        Window window = entry.getKey();
+        WindowState windowState = entry.getValue();
+        if (windowState.watermarkArrivalTime == -1) {
+          if (earlyTriggerMillis > 0 && windowState.lastTriggerFiredTime + earlyTriggerMillis <= currentDerivedTimestamp) {
+            // fire early time triggers
+            fireTrigger(window, windowState);
+          }
+        } else {
+          if (lateTriggerMillis > 0 && windowState.lastTriggerFiredTime + lateTriggerMillis <= currentDerivedTimestamp) {
+            // fire late time triggers
+            fireTrigger(window, windowState);
+          }
+        }
+      }
+    }
+  }
+
+  @Override
+  public void fireTrigger(Window window, WindowState windowState)
+  {
+    if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
+      fireRetractionTrigger(window);
+    }
+    fireNormalTrigger(window);
+    windowState.lastTriggerFiredTime = currentDerivedTimestamp;
+    if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.DISCARDING) {
+      clearWindowData(window);
+    }
+  }
+
+  /**
+   * This method fires the normal trigger for the given window.
+   *
+   * @param window
+   */
+  public abstract void fireNormalTrigger(Window window);
+
+  /**
+   * This method fires the retraction trigger for the given window. This should only be valid if the accumulation
+   * mode is ACCUMULATING_AND_RETRACTING
+   *
+   * @param window
+   */
+  public abstract void fireRetractionTrigger(Window window);
+
+
+  @Override
+  public void clearWindowData(Window window)
+  {
+    dataStorage.remove(window);
+  }
+
+  @Override
+  public void invalidateWindow(Window window)
+  {
+    dataStorage.remove(window);
+    if (retractionStorage != null) {
+      retractionStorage.remove(window);
+    }
+    windowStateMap.remove(window);
+  }
+}

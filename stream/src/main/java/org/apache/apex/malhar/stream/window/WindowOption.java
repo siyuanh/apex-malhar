@@ -35,10 +35,6 @@ import org.joda.time.Duration;
 @InterfaceStability.Evolving
 public abstract class WindowOption
 {
-  // TODO: We might not want to include the TriggerOption, the AccumulationMode and the AllowedLateness in the WindowOption since the input of the operator might already be a WindowedTuple from upstream. Need further discussion
-
-
-
   public static class GlobalWindow extends WindowOption
   {
   }
@@ -46,7 +42,12 @@ public abstract class WindowOption
   public static class TimeWindows extends WindowOption
   {
     @FieldSerializer.Bind(JavaSerializer.class)
-    private final Duration duration;
+    private Duration duration;
+
+    private TimeWindows()
+    {
+      // for kryo
+    }
 
     public TimeWindows(Duration duration)
     {
@@ -69,6 +70,11 @@ public abstract class WindowOption
     @FieldSerializer.Bind(JavaSerializer.class)
     private Duration slideByDuration;
 
+    private SlidingTimeWindows()
+    {
+      // for kryo
+    }
+
     public SlidingTimeWindows(Duration size, Duration slideByDuration)
     {
       super(size);
@@ -88,6 +94,11 @@ public abstract class WindowOption
   {
     @FieldSerializer.Bind(JavaSerializer.class)
     private Duration minGap;
+
+    private SessionWindows()
+    {
+      // for kryo
+    }
 
     public SessionWindows(Duration minGap)
     {

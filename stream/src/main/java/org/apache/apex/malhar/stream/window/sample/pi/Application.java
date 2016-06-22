@@ -12,7 +12,6 @@ import org.apache.apex.malhar.stream.window.TriggerOption;
 import org.apache.apex.malhar.stream.window.Tuple;
 import org.apache.apex.malhar.stream.window.WindowOption;
 import org.apache.apex.malhar.stream.window.WindowState;
-import org.apache.apex.malhar.stream.window.impl.InMemoryWindowedKeyedStorage;
 import org.apache.apex.malhar.stream.window.impl.InMemoryWindowedStorage;
 import org.apache.apex.malhar.stream.window.impl.WindowedOperatorImpl;
 import org.apache.commons.lang3.tuple.MutablePair;
@@ -79,11 +78,11 @@ public class Application implements StreamingApplication
   public void populateDAG(DAG dag, Configuration configuration)
   {
     RandomNumberPairGenerator inputOperator = new RandomNumberPairGenerator();
-    WindowedOperatorImpl<MutablePair<Double, Double>, Void, MutablePair<Long, Long>, Double> windowedOperator = new WindowedOperatorImpl();
+    WindowedOperatorImpl<MutablePair<Double, Double>, MutablePair<Long, Long>, Double> windowedOperator = new WindowedOperatorImpl<>();
     Accumulation<MutablePair<Double, Double>, MutablePair<Long, Long>, Double> piAccumulation = new PiAccumulation();
 
     windowedOperator.setAccumulation(piAccumulation);
-    windowedOperator.setDataStorage(new InMemoryWindowedKeyedStorage<Void, MutablePair<Long, Long>>());
+    windowedOperator.setDataStorage(new InMemoryWindowedStorage<MutablePair<Long, Long>>());
     windowedOperator.setWindowStateStorage(new InMemoryWindowedStorage<WindowState>());
     windowedOperator.setWindowOption(new WindowOption.GlobalWindow());
     windowedOperator.setTriggerOption(TriggerOption.AtWatermark().withEarlyFiringsAtEvery(Duration.millis(1000)).accumulatingFiredPanes());

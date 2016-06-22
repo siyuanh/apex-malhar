@@ -95,9 +95,20 @@ public interface Tuple<T>
 
   class WatermarkTuple<T> extends TimestampedTuple<T> implements Watermark
   {
+    private WatermarkTuple()
+    {
+      // for kryo
+    }
+
     public WatermarkTuple(long timestamp)
     {
       super(timestamp, null);
+    }
+
+    @Override
+    public String toString()
+    {
+      return "[Watermark " + getTimestamp() + "]";
     }
   }
 
