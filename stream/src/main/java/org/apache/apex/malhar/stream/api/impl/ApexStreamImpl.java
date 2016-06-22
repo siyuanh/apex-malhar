@@ -20,7 +20,6 @@ package org.apache.apex.malhar.stream.api.impl;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -28,12 +27,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import org.joda.time.Duration;
+
 import org.apache.apex.malhar.stream.api.ApexStream;
 import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
 import org.apache.apex.malhar.stream.api.WindowedStream;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.function.Function.FlatMapFunction;
 import org.apache.apex.malhar.stream.api.operator.FunctionOperator;
+import org.apache.apex.malhar.stream.window.TriggerOption;
 import org.apache.apex.malhar.stream.window.WindowOption;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -43,7 +45,6 @@ import com.datatorrent.api.Context;
 import com.datatorrent.api.DAG;
 import com.datatorrent.api.LocalMode;
 import com.datatorrent.api.Operator;
-import com.datatorrent.lib.algo.UniqueCounter;
 import com.datatorrent.lib.io.ConsoleOutputOperator;
 import com.datatorrent.lib.util.KeyValPair;
 import com.datatorrent.stram.StramLocalCluster;
@@ -104,6 +105,111 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
     OUTPUT_ATTRIBUTES.add(Context.PortContext.STREAM_CODEC);
     OUTPUT_ATTRIBUTES.add(Context.PortContext.TUPLE_CLASS);
 
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<Integer>> STREAM count()
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<Map.Entry<Object, Integer>>> STREAM countByKey()
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<Map<Object, Integer>>> STREAM countByKey(int key)
+  {
+    return null;
+  }
+
+  @Override
+  public <TUPLE, KEY, STREAM extends WindowedStream<Map.Entry<KEY, List<TUPLE>>>> STREAM topByKey(int N, Function.MapFunction<T, KeyValPair<KEY, TUPLE>> convertToKeyVal)
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<T>> STREAM top(int N)
+  {
+    return null;
+  }
+
+  @Override
+  public <O, STREAM extends WindowedStream<O>> STREAM combineByKey()
+  {
+    return null;
+  }
+
+  @Override
+  public <O, STREAM extends WindowedStream<O>> STREAM combine()
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<T>> STREAM reduce(String name, Function.ReduceFunction<T> reduce)
+  {
+    return null;
+  }
+
+  @Override
+  public <O, STREAM extends WindowedStream<O>> STREAM fold(O initialValue, Function.FoldFunction<T, O> fold)
+  {
+    return null;
+  }
+
+  @Override
+  public <O, STREAM extends WindowedStream<O>> STREAM fold(String name, O initialValue, Function.FoldFunction<T, O>
+      fold)
+  {
+    return null;
+  }
+
+  @Override
+  public <O, K, STREAM extends WindowedStream<KeyValPair<K, O>>> STREAM foldByKey(String name, Function.FoldFunction<T, KeyValPair<K, O>> fold)
+  {
+    return null;
+  }
+
+  @Override
+  public <O, K, STREAM extends WindowedStream<KeyValPair<K, O>>> STREAM foldByKey(Function.FoldFunction<T,
+      KeyValPair<K, O>> fold)
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<T>> STREAM reduce(Function.ReduceFunction<T> reduce)
+  {
+    return null;
+  }
+
+  @Override
+  public <O, K, STREAM extends WindowedStream<KeyValPair<K, Iterable<O>>>> STREAM groupByKey(Function.MapFunction<T,
+      KeyValPair<K, O>> convertToKeyVal)
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<Iterable<T>>> STREAM group()
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<T>> STREAM resetTrigger(TriggerOption option)
+  {
+    return null;
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<T>> STREAM resetAllowedLateness(Duration allowedLateness)
+  {
+    return null;
   }
 
   /**
@@ -231,63 +337,6 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
     return (STREAM)addOperator(name, filterFunctionOperator, filterFunctionOperator.input, filterFunctionOperator.output);
   }
 
-  @Override
-  public <STREAM extends ApexStream<T>> STREAM reduce(Function.ReduceFunction<T> reduce)
-  {
-    return reduce(reduce.toString(), reduce);
-  }
-
-  @Override
-  public <O, K, STREAM extends ApexStream<KeyValPair<K, Iterable<O>>>> STREAM groupByKey()
-  {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public <STREAM extends ApexStream<Iterable<T>>> STREAM group()
-  {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public <STREAM extends ApexStream<T>> STREAM reduce(String name, Function.ReduceFunction<T> reduce)
-  {
-    FunctionOperator.ReduceFunctionOperator<T> opt = new FunctionOperator.ReduceFunctionOperator<>(reduce);
-    return (STREAM)addOperator(name, opt, opt.input, opt.output);
-  }
-
-  @Override
-  public <O, STREAM extends ApexStream<O>> STREAM fold(final O initialValue, Function.FoldFunction<T, O> fold)
-  {
-    return fold(fold.toString(), initialValue, fold);
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public <O, STREAM extends ApexStream<O>> STREAM fold(String name, O initialValue, Function.FoldFunction<T, O> fold)
-  {
-    FunctionOperator.FoldFunctionOperator<T, O> opt = new FunctionOperator.FoldFunctionOperator<>(fold, initialValue);
-    return (STREAM)addOperator(name, opt, opt.input, opt.output);
-  }
-
-  @Override
-  public <O, K, STREAM extends ApexStream<KeyValPair<K, O>>> STREAM foldByKey(String name, Function.FoldFunction<T, KeyValPair<K, O>> fold)
-  {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public <O, K, STREAM extends ApexStream<KeyValPair<K, O>>> STREAM foldByKey(Function.FoldFunction<T, KeyValPair<K, O>> fold)
-  {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public <STREAM extends ApexStream<Integer>> STREAM count()
-  {
-    throw new UnsupportedOperationException();
-  }
 
 
   public <STREAM extends ApexStream<Map.Entry<Object, Integer>>> STREAM countByElement()
@@ -295,54 +344,8 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
     return null;
   }
 
-  @Override
-  public <STREAM extends ApexStream<Map<Object, Integer>>> STREAM countByKey(int key)
-  {
-    throw new UnsupportedOperationException();
-  }
 
-  @Override
-  public <TUPLE, KEY, STREAM extends ApexStream<Map.Entry<KEY, List<TUPLE>>>> STREAM topByKey(int N)
-  {
-    throw new UnsupportedOperationException();
-  }
 
-  @Override
-  public <STREAM extends ApexStream<T>> STREAM top(int N)
-  {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public <O, STREAM extends ApexStream<O>> STREAM combineByKey()
-  {
-    return null;
-  }
-
-  @Override
-  public <O, STREAM extends ApexStream<O>> STREAM combine()
-  {
-    return null;
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public <STREAM extends ApexStream<Map.Entry<Object, Integer>>> STREAM countByKey()
-  {
-    // Needs to change the unique counter to support keys
-    UniqueCounter<Object> uniqueCounter = new UniqueCounter<>();
-    uniqueCounter.setCumulative(true);
-    Operator.OutputPort<HashMap<Object, Integer>> resultPort = uniqueCounter.count;
-    return (STREAM)addOperator("CounterByKey", uniqueCounter, (Operator.InputPort<T>)uniqueCounter.data, resultPort)
-        .flatMap(new FlatMapFunction<HashMap<Object, Integer>, Map.Entry<Object, Integer>>()
-        {
-          @Override
-          public Iterable<Map.Entry<Object, Integer>> f(HashMap<Object, Integer> input)
-          {
-            return input.entrySet();
-          }
-        });
-  }
 
   @Override
   public <O, STREAM extends ApexStream<O>> STREAM addOperator(Operator op, Operator.InputPort<T> inputPort, Operator.OutputPort<O> outputPort)
@@ -569,6 +572,18 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
 
   @Override
   public WindowedStream<T> window(WindowOption option)
+  {
+    return null;
+  }
+
+  @Override
+  public WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption)
+  {
+    return null;
+  }
+
+  @Override
+  public WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption, Duration allowLateness)
   {
     return null;
   }

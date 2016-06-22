@@ -22,7 +22,10 @@ package org.apache.apex.malhar.stream.api;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import org.joda.time.Duration;
+
 import org.apache.apex.malhar.stream.api.function.Function;
+import org.apache.apex.malhar.stream.window.TriggerOption;
 import org.apache.apex.malhar.stream.window.WindowOption;
 
 import com.datatorrent.api.Attribute;
@@ -212,9 +215,27 @@ public interface ApexStream<T>
   /**
    * Chunk tuples into Windows
    * Window Transform are defined in {@see WindowedStream}
-   * @param option
+   * @param windowOption
    * @return
    */
-  WindowedStream<T> window(WindowOption option);
+  WindowedStream<T> window(WindowOption windowOption);
+
+  /**
+   * Chunk tuple into windows with window option and trigger option
+   * @param windowOption
+   * @param triggerOption
+   * @return
+   */
+  WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption);
+
+  /**
+   *
+   * Chunk tuple into windows with window option and trigger option and allowed lateness
+   * @param windowOption
+   * @param triggerOption
+   * @param allowLateness
+   * @return
+   */
+  WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption, Duration allowLateness);
 
 }

@@ -155,7 +155,7 @@ public class TriggerExample {
    * close at 10:44:59, when the watermark passes 10:30:00.
    */
   static class CalculateTotalFlow
-      extends CompositeStreamTransform<KeyValPair<String, Integer>, SampleBean>
+      extends CompositeStreamTransform<String, SampleBean>
   {
     private int windowDuration;
 
@@ -165,7 +165,7 @@ public class TriggerExample {
 
 
     @Override
-    public ApexStream<SampleBean> compose(ApexStream<KeyValPair<String, Integer>> inputStream)
+    public ApexStream<SampleBean> compose(ApexStream<String> inputStream)
     {
       // Concept #1: The default triggering behavior
       // By default Dataflow uses a trigger which fires when the watermark has passed the end of the
@@ -188,10 +188,8 @@ public class TriggerExample {
       // late, and dropped.
 
       ApexStream<SampleBean> defaultTriggerResults = inputStream
-          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
-              .triggering(null)
-              .discardingFiredPanes()
-              .withAllowedLateness(Duration.ZERO))
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration)),
+              new TriggerOption().discardingFiredPanes())
           .addCompositeStreams(new TotalFlow("default"));
 
 
@@ -215,10 +213,9 @@ public class TriggerExample {
       // 5             | 20                 | 1                 | false   | false  | LATE
       // 5             | 60                 | 1                 | false   | false  | LATE
       ApexStream<SampleBean> withAllowedLatenessResults = inputStream
-          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
-              .triggering(new TriggerOption().withLateFiringsAtEvery(1))
-              .discardingFiredPanes()
-              .withAllowedLateness(Duration.standardDays(1)))
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration)),
+              new TriggerOption().discardingFiredPanes(),
+              Duration.standardDays(1))
           .addCompositeStreams(new TotalFlow("withAllowedLateness"));
 
 
@@ -240,14 +237,14 @@ public class TriggerExample {
       // 5             | 430                | 10                | false   | false  | LATE
 
       ApexStream<SampleBean> speculativeResults = inputStream
-          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration)),
               //Trigger fires every minute
-              .triggering(new TriggerOption().withEarlyFiringsAtEvery(Duration.standardMinutes(1)))
-              // After emitting each pane, it will continue accumulating the elements so that each
-              // approximation includes all of the previous data in addition to the newly arrived
-              // data.
-              .accumulatingFiredPanes()
-              .withAllowedLateness(Duration.standardDays(1)))
+              new TriggerOption().withEarlyFiringsAtEvery(Duration.standardMinutes(1))
+                  // After emitting each pane, it will continue accumulating the elements so that each
+                  // approximation includes all of the previous data in addition to the newly arrived
+                  // data.
+                  .accumulatingFiredPanes(),
+              Duration.standardDays(1))
           .addCompositeStreams(new TotalFlow("speculative"));
 
 
@@ -274,15 +271,15 @@ public class TriggerExample {
 
       // For more possibilities of how to build advanced triggers, see {@link Trigger}.
       ApexStream<SampleBean> sequentialResults = inputStream
-          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration))
+          .window(new WindowOption.TimeWindows(Duration.standardMinutes(windowDuration)),
               // Speculative every ONE_MINUTE
-              .triggering(new TriggerOption().withEarlyFiringsAtEvery(Duration.standardMinutes(1))
-                  .withLateFiringsAtEvery(Duration.standardMinutes(5)))
-              // After emitting each pane, it will continue accumulating the elements so that each
-              // approximation includes all of the previous data in addition to the newly arrived
-              // data.
-              .accumulatingFiredPanes()
-              .withAllowedLateness(Duration.standardDays(1)))
+              new TriggerOption().withEarlyFiringsAtEvery(Duration.standardMinutes(1))
+                  .withLateFiringsAtEvery(Duration.standardMinutes(5))
+                  // After emitting each pane, it will continue accumulating the elements so that each
+                  // approximation includes all of the previous data in addition to the newly arrived
+                  // data.
+                  .accumulatingFiredPanes(),
+              Duration.standardDays(1))
           .addCompositeStreams(new TotalFlow("sequential"));
 
       return sequentialResults;
@@ -300,7 +297,7 @@ public class TriggerExample {
    * objects, to save to BigQuery.
    */
   static class TotalFlow extends
-      CompositeStreamTransform <KeyValPair<String, Integer>, SampleBean> {
+      CompositeStreamTransform <String, SampleBean> {
     private String triggerType;
 
     public TotalFlow(String triggerType) {
@@ -308,13 +305,13 @@ public class TriggerExample {
     }
 
     @Override
-    public ApexStream<SampleBean> compose(ApexStream<KeyValPair<String, Integer>> inputStream)
+    public ApexStream<SampleBean> compose(ApexStream<String> inputStream)
     {
       if (!(inputStream instanceof WindowedStream)) {
         throw new RuntimeException("Not supported here");
       }
-      WindowedStream<KeyValPair<String, Integer>> windowedStream = (WindowedStream<KeyValPair<String, Integer>>)inputStream;
-      ApexStream<KeyValPair<String, Iterable<Integer>>> flowPerFreeway = windowedStream.groupByKey();
+      WindowedStream<String> windowedStream = (WindowedStream<String>)inputStream;
+      ApexStream<KeyValPair<String, Iterable<Integer>>> flowPerFreeway = windowedStream.groupByKey(new ExtractFlowInfo());
 
       return flowPerFreeway.map(new Function.MapFunction<KeyValPair<String,Iterable<Integer>>, KeyValPair<String, String>>()
       {
@@ -559,7 +556,6 @@ public class TriggerExample {
 
   public static void main(String[] args) throws Exception {
     StreamFactory.fromFolder("some folder")
-        .map(new ExtractFlowInfo())
         .addCompositeStreams(new CalculateTotalFlow(60));
 
   }

@@ -139,12 +139,19 @@ public class AutoComplete
     public ApexStream<Map.Entry<String, List<CompletionCandidate>>> compose(
         ApexStream<CompletionCandidate> input)
     {
-      return input.map(new AllPrefixes(minPrefix)).window(new WindowOption.GlobalWindow()).topByKey(1);
+      return input.flatMap(new AllPrefixes(minPrefix)).window(new WindowOption.GlobalWindow()).topByKey(1, new Function.MapFunction<KeyValPair<String, CompletionCandidate>, KeyValPair<String, CompletionCandidate>>()
+      {
+        @Override
+        public KeyValPair<String, CompletionCandidate> f(KeyValPair<String, CompletionCandidate> tuple)
+        {
+          return tuple;
+        }
+      });
     }
   }
 
 
-  private static class AllPrefixes implements Function.FlatMapFunction<CompletionCandidate, Map.Entry<String, CompletionCandidate>>
+  private static class AllPrefixes implements Function.FlatMapFunction<CompletionCandidate, KeyValPair<String, CompletionCandidate>>
   {
     private final int minPrefix;
     private final int maxPrefix;
@@ -165,9 +172,9 @@ public class AutoComplete
     }
 
     @Override
-    public Iterable<Map.Entry<String, CompletionCandidate>> f(CompletionCandidate input)
+    public Iterable<KeyValPair<String, CompletionCandidate>> f(CompletionCandidate input)
     {
-      List<Map.Entry<String, CompletionCandidate>> result = new LinkedList<>();
+      List<KeyValPair<String, CompletionCandidate>> result = new LinkedList<>();
       String word = input.getValue();
       for (int i = minPrefix; i <= Math.min(word.length(), maxPrefix); i++) {
         result.add(new KeyValPair<>(input.getValue(), input));
