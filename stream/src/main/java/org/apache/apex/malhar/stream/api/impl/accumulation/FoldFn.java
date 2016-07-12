@@ -16,27 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.sample;
+package org.apache.apex.malhar.stream.api.impl.accumulation;
 
-import org.apache.apex.malhar.stream.api.function.Function;
-import org.apache.apex.malhar.stream.api.impl.ApexStreamImpl;
-
-import com.datatorrent.api.DAG;
+import org.apache.apex.malhar.lib.window.Accumulation;
 
 /**
- * An example to create your own stream
+ * Fold Accumulation
  */
-public class MyStream<T> extends ApexStreamImpl<T>
+public interface FoldFn<INPUT, OUTPUT> extends Accumulation<INPUT, OUTPUT, OUTPUT>
 {
 
-  public MyStream(ApexStreamImpl<T> apexStream)
-  {
-    super(apexStream);
-  }
-
-  <O> MyStream<O> myFilterAndMap(Function.MapFunction<T, O> map, Function.FilterFunction<T> filterFunction)
-  {
-    return filter(filterFunction).map(map).with(DAG.Locality.THREAD_LOCAL);
-  }
+  /**
+   * Set the initial value for the fold transformation
+   * @param output
+   */
+  void setInitialValue(OUTPUT output);
 
 }

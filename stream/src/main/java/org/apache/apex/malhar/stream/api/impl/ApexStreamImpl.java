@@ -27,8 +27,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import org.joda.time.Duration;
+
+import org.apache.apex.malhar.lib.window.TriggerOption;
+import org.apache.apex.malhar.lib.window.WindowOption;
+
 import org.apache.apex.malhar.stream.api.ApexStream;
+import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
+import org.apache.apex.malhar.stream.api.WindowedStream;
 import org.apache.apex.malhar.stream.api.function.Function;
+import org.apache.apex.malhar.stream.api.function.Function.FlatMapFunction;
 import org.apache.apex.malhar.stream.api.operator.FunctionOperator;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -38,7 +46,6 @@ import com.datatorrent.api.Context;
 import com.datatorrent.api.DAG;
 import com.datatorrent.api.LocalMode;
 import com.datatorrent.api.Operator;
-import com.datatorrent.lib.algo.UniqueCounter;
 import com.datatorrent.lib.io.ConsoleOutputOperator;
 import com.datatorrent.stram.StramLocalCluster;
 import com.datatorrent.stram.plan.logical.LogicalPlan;
@@ -135,18 +142,17 @@ public class ApexStreamImpl<T> implements ApexStream<T>
     }
   }
 
+
   /**
    * Graph behind the stream
    */
-  private DagMeta graph;
-
-  private ApexStream<T> delegator;
+  protected DagMeta graph;
 
   /**
    * Right now the stream only support single extend point
    * You can have multiple downstream operators connect to this single extend point though
    */
-  private Brick<T> lastBrick;
+  protected Brick<T> lastBrick;
 
   public Brick<T> getLastBrick()
   {
@@ -163,13 +169,11 @@ public class ApexStreamImpl<T> implements ApexStream<T>
     graph = new DagMeta();
   }
 
-  public ApexStreamImpl(ApexStream<T> apexStream)
+  public ApexStreamImpl(ApexStreamImpl<T> apexStream)
   {
-    this.delegator = apexStream;
-    if (delegator != null && delegator instanceof ApexStreamImpl) {
-      graph = ((ApexStreamImpl)delegator).graph;
-      lastBrick = ((ApexStreamImpl<T>)delegator).lastBrick;
-    }
+    //copy the variables over to the new ApexStreamImpl
+    graph = apexStream.graph;
+    lastBrick = apexStream.lastBrick;
   }
 
   public ApexStreamImpl(DagMeta graph)
@@ -198,14 +202,14 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   }
 
   @Override
-  public <O, STREAM extends ApexStream<O>> STREAM flatMap(Function.FlatMapFunction<T, O> flatten)
+  public <O, STREAM extends ApexStream<O>> STREAM flatMap(FlatMapFunction<T, O> flatten)
   {
     return flatMap(flatten.toString(), flatten);
   }
 
   @Override
   @SuppressWarnings("unchecked")
-  public <O, STREAM extends ApexStream<O>> STREAM flatMap(String name, Function.FlatMapFunction<T, O> flatten)
+  public <O, STREAM extends ApexStream<O>> STREAM flatMap(String name, FlatMapFunction<T, O> flatten)
   {
     FunctionOperator.FlatMapFunctionOperator<T, O> opt = new FunctionOperator.FlatMapFunctionOperator<>(flatten);
     return (STREAM)addOperator(name, opt, opt.input, opt.output);
@@ -225,61 +229,20 @@ public class ApexStreamImpl<T> implements ApexStream<T>
     return (STREAM)addOperator(name, filterFunctionOperator, filterFunctionOperator.input, filterFunctionOperator.output);
   }
 
-  @Override
-  public <STREAM extends ApexStream<T>> STREAM reduce(Function.ReduceFunction<T> reduce)
+
+
+  public <STREAM extends ApexStream<Map.Entry<Object, Integer>>> STREAM countByElement()
   {
-    return reduce(reduce.toString(), reduce);
+    return null;
   }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public <STREAM extends ApexStream<T>> STREAM reduce(String name, Function.ReduceFunction<T> reduce)
-  {
-    FunctionOperator.ReduceFunctionOperator<T> opt = new FunctionOperator.ReduceFunctionOperator<>(reduce);
-    return (STREAM)addOperator(name, opt, opt.input, opt.output);
-  }
 
-  @Override
-  public <O, STREAM extends ApexStream<O>> STREAM fold(final O initialValue, Function.FoldFunction<T, O> fold)
-  {
-    return fold(fold.toString(), initialValue, fold);
-  }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public <O, STREAM extends ApexStream<O>> STREAM fold(String name, O initialValue, Function.FoldFunction<T, O> fold)
-  {
-    FunctionOperator.FoldFunctionOperator<T, O> opt = new FunctionOperator.FoldFunctionOperator<>(fold, initialValue);
-    return (STREAM)addOperator(name, opt, opt.input, opt.output);
-  }
-
-  @Override
-  public <STREAM extends ApexStream<Integer>> STREAM count()
-  {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public <STREAM extends ApexStream<Map<Object, Integer>>> STREAM countByKey(int key)
-  {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public <STREAM extends ApexStream<Map<Object, Integer>>> STREAM countByKey()
-  {
-    // Needs to change the unique counter to support keys
-    UniqueCounter<Object> uniqueCounter = new UniqueCounter<>();
-    uniqueCounter.setCumulative(true);
-    Operator.OutputPort<? extends Map<Object, Integer>> resultPort = uniqueCounter.count;
-    return (STREAM)addOperator("CounterByKey", uniqueCounter, (Operator.InputPort<T>)uniqueCounter.data, resultPort);
-  }
 
   @Override
   public <O, STREAM extends ApexStream<O>> STREAM addOperator(Operator op, Operator.InputPort<T> inputPort, Operator.OutputPort<O> outputPort)
   {
-    return addOperator(op.toString(), op, inputPort, outputPort);
+    return addOperator(IDGenerator.generateOperatorIDWithUUID(op.getClass()), op, inputPort, outputPort);
   }
 
 
@@ -288,15 +251,6 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   public <O, STREAM extends ApexStream<O>> STREAM addOperator(String opName, Operator op, Operator.InputPort<T> inputPort, Operator.OutputPort<O> outputPort)
   {
 
-    if (delegator != null) {
-      ApexStreamImpl<O> apexStream = delegator.addOperator(opName, op, inputPort, outputPort);
-      try {
-        return (STREAM)this.getClass().getConstructor(ApexStream.class).newInstance(apexStream);
-      } catch (Exception e) {
-        throw new RuntimeException("You have to override the default constructor with ApexStreamImpl as delegator");
-      }
-    }
-
     checkArguments(op, inputPort, outputPort);
 
     DagMeta.NodeMeta nm = null;
@@ -304,7 +258,6 @@ public class ApexStreamImpl<T> implements ApexStream<T>
     if (lastBrick == null) {
       nm = graph.addNode(opName, op, null, null, inputPort);
     } else {
-
       nm = graph.addNode(opName, op, lastBrick.nodeMeta, lastBrick.lastOutput, inputPort);
     }
 
@@ -315,7 +268,23 @@ public class ApexStreamImpl<T> implements ApexStream<T>
       newBrick.lastStream = Pair.<Operator.OutputPort, Operator.InputPort>of(lastBrick.lastOutput, inputPort);
     }
 
-    return (STREAM)new ApexStreamImpl<>(this.graph, newBrick);
+    if (this.getClass() == ApexStreamImpl.class || this.getClass() == ApexWindowedStreamImpl.class) {
+      return (STREAM)newStream(this.graph, newBrick);
+    } else {
+      try {
+        return (STREAM)this.getClass().getConstructor(ApexStreamImpl.class).newInstance(newStream(this.graph, newBrick));
+      } catch (Exception e) {
+        throw new RuntimeException("You have to override the default constructor with ApexStreamImpl as default parameter", e);
+      }
+    }
+
+
+  }
+
+  @Override
+  public <O, STREAM extends ApexStream<O>> STREAM addCompositeStreams(CompositeStreamTransform<T, O> compositeStreamTransform)
+  {
+    return (STREAM)compositeStreamTransform.compose(this);
   }
 
   /* Check to see if inputPort and outputPort belongs to the operator */
@@ -469,6 +438,7 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   {
     LocalMode lma = LocalMode.newInstance();
     populateDag(lma.getDAG());
+    DAG dag = lma.getDAG();
     LocalMode.Controller lc = lma.getController();
     if (lc instanceof StramLocalCluster) {
       ((StramLocalCluster)lc).setExitCondition(exitCondition);
@@ -493,5 +463,36 @@ public class ApexStreamImpl<T> implements ApexStream<T>
     //TODO need an api to submit the StreamingApplication to cluster
   }
 
+  @Override
+  public WindowedStream<T> window(WindowOption option)
+  {
+    return window(option, null, null);
+  }
+
+  @Override
+  public WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption)
+  {
+    return window(windowOption, triggerOption, null);
+  }
+
+  @Override
+  public WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption, Duration allowLateness)
+  {
+    ApexWindowedStreamImpl<T> windowedStream = new ApexWindowedStreamImpl<>();
+    windowedStream.lastBrick = lastBrick;
+    windowedStream.graph = graph;
+    windowedStream.windowOption = windowOption;
+    windowedStream.triggerOption = triggerOption;
+    windowedStream.allowedLateness = allowLateness;
+    return windowedStream;
+  }
+
+  protected <O> ApexStream<O> newStream(DagMeta graph, Brick<O> newBrick)
+  {
+    ApexStreamImpl<O> newstream = new ApexStreamImpl<>();
+    newstream.graph = graph;
+    newstream.lastBrick = newBrick;
+    return newstream;
+  }
 
 }

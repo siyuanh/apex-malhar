@@ -16,27 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.sample;
-
-import org.apache.apex.malhar.stream.api.function.Function;
-import org.apache.apex.malhar.stream.api.impl.ApexStreamImpl;
-
-import com.datatorrent.api.DAG;
+package org.apache.apex.malhar.stream.api;
 
 /**
- * An example to create your own stream
+ * A group of Streams and transforms in between
  */
-public class MyStream<T> extends ApexStreamImpl<T>
+public abstract class CompositeStreamTransform<IN, OUT>
 {
 
-  public MyStream(ApexStreamImpl<T> apexStream)
-  {
-    super(apexStream);
-  }
-
-  <O> MyStream<O> myFilterAndMap(Function.MapFunction<T, O> map, Function.FilterFunction<T> filterFunction)
-  {
-    return filter(filterFunction).map(map).with(DAG.Locality.THREAD_LOCAL);
-  }
+  public abstract ApexStream<OUT> compose(ApexStream<IN> inputStream);
 
 }
