@@ -123,15 +123,31 @@ public class ApexWindowedStreamImpl<T> extends ApexStreamImpl<T> implements Wind
   }
 
   @Override
-  public <O, STREAM extends WindowedStream<O>> STREAM combineByKey()
+  public <K, V, O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM accumulateByKey(Accumulation<V, ACCU, O> accumulation,
+      Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
   {
-    throw new UnsupportedOperationException();
+    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(convertToKeyVal);
+    KeyedWindowedOperatorImpl<K, V, ACCU, O> keyedWindowedOperator = createKeyedWindowedOperator(accumulation);
+    return kvstream.addOperator(keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
   }
 
   @Override
-  public <O, STREAM extends WindowedStream<O>> STREAM combine()
+  public <O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM accumulate(Accumulation<T, ACCU, O> accumulation)
   {
-    throw new UnsupportedOperationException();
+    WindowedStream<Tuple<T>> innerstream = map(new Function.MapFunction<T, Tuple<T>>()
+    {
+      @Override
+      public Tuple<T> f(T input)
+      {
+        if (input instanceof Tuple.TimestampedTuple) {
+          return new Tuple.TimestampedTuple<>(((Tuple.TimestampedTuple)input).getTimestamp(), input);
+        } else {
+          return new Tuple.TimestampedTuple<>(System.currentTimeMillis(), input);
+        }
+      }
+    });
+    WindowedOperatorImpl<T, ACCU, O> windowedOperator = createWindowedOperator(accumulation);
+    return innerstream.addOperator(windowedOperator, windowedOperator.input, windowedOperator.output);
   }
 
   @Override

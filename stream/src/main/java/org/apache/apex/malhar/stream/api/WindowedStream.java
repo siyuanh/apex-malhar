@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.joda.time.Duration;
 
+import org.apache.apex.malhar.lib.window.Accumulation;
 import org.apache.apex.malhar.lib.window.TriggerOption;
 import org.apache.apex.malhar.lib.window.Tuple;
 import org.apache.apex.malhar.stream.api.function.Function;
@@ -95,9 +96,10 @@ public interface WindowedStream<T> extends ApexStream<T>
    */
   <STREAM extends WindowedStream<Tuple.WindowedTuple<List<T>>>> STREAM top(int N);
 
-  <O, STREAM extends WindowedStream<O>> STREAM combineByKey();
+  <K, V, O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM accumulateByKey(Accumulation<V, ACCU, O> accumulation,
+      Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
 
-  <O, STREAM extends WindowedStream<O>> STREAM combine();
+  <O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM accumulate(Accumulation<T, ACCU, O> accumulation);
 
   /**
    * Reduce transformation<br>
