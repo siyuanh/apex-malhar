@@ -21,9 +21,12 @@ package org.apache.apex.malhar.stream.api.operator;
 
 import java.util.Map;
 
+import org.apache.hadoop.classification.InterfaceStability;
+
 /**
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public class ByteArrayClassLoader extends ClassLoader
 {
   private final Map<String, byte[]> classes;

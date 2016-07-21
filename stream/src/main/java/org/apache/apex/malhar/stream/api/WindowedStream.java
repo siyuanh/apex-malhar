@@ -25,9 +25,12 @@ import org.joda.time.Duration;
 import org.apache.apex.malhar.lib.window.Accumulation;
 import org.apache.apex.malhar.lib.window.TriggerOption;
 import org.apache.apex.malhar.lib.window.Tuple;
+import org.apache.apex.malhar.lib.window.impl.KeyedWindowedOperatorImpl;
+import org.apache.apex.malhar.lib.window.impl.WindowedOperatorImpl;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.impl.accumulation.FoldFn;
 import org.apache.apex.malhar.stream.api.impl.accumulation.ReduceFn;
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.lib.util.KeyValPair;
 
@@ -64,6 +67,7 @@ import com.datatorrent.lib.util.KeyValPair;
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public interface WindowedStream<T> extends ApexStream<T>
 {
 
@@ -74,69 +78,203 @@ public interface WindowedStream<T> extends ApexStream<T>
   <STREAM extends WindowedStream<Tuple.WindowedTuple<Long>>> STREAM count();
 
   /**
+   * Count of all tuples
+   * @param name  name of the operator
+   * @return new stream of Integer
+   */
+  <STREAM extends WindowedStream<Tuple.WindowedTuple<Long>>> STREAM count(String name);
+
+  /**
    * Count tuples by the key<br>
-   * If the input is KeyedTuple it will get the key from getKey method from the tuple<br>
-   * If not, use the tuple itself as a key
-   * @return new stream of Map
+   * @param convertToKeyValue The function convert plain tuple to k,v pair
+   * @return new stream of Key Value Pair
    */
   <K, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, Long>>>> STREAM countByKey(Function.MapFunction<T, Tuple<KeyValPair<K, Long>>> convertToKeyValue);
 
+  /**
+   * Count tuples by the key<br>
+   * @param name name of the operator
+   * @param convertToKeyValue The function convert plain tuple to k,v pair
+   * @return new stream of Key Value Pair
+   */
+  <K, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, Long>>>> STREAM countByKey(String name, Function.MapFunction<T, Tuple<KeyValPair<K, Long>>> convertToKeyValue);
 
   /**
-   *
-   * Return top tuples by the selected key
+   * Return top N tuples by the selected key
+   * @param N how many tuples you want to keep
+   * @param convertToKeyVal The function convert plain tuple to k,v pair
    * @return new stream of Key and top N tuple of the key
    */
   <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, List<V>>>>> STREAM topByKey(int N, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
 
   /**
-   *
-   * Return top tuples of all tuples in the window
-   * @return new stream of Map
+   * Return top N tuples by the selected key
+   * @param N how many tuples you want to keep
+   * @param name name of the operator
+   * @param convertToKeyVal The function convert plain tuple to k,v pair
+   * @return new stream of Key and top N tuple of the key
+   */
+  <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, List<V>>>>> STREAM topByKey(int N, String name, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
+
+  /**
+   * Return top N tuples of all tuples in the window
+   * @param N
+   * @param name name of the operator
+   * @return new stream of topN
+   */
+  <STREAM extends WindowedStream<Tuple.WindowedTuple<List<T>>>> STREAM top(int N, String name);
+
+  /**
+   * Return top N tuples of all tuples in the window
+   * @param N
+   * @param name name of the operator
+   * @return new stream of topN
    */
   <STREAM extends WindowedStream<Tuple.WindowedTuple<List<T>>>> STREAM top(int N);
 
+  /**
+   * Add {@link KeyedWindowedOperatorImpl} with specified {@link Accumulation} <br>
+   * Accumulate tuples by some key within the window definition in this stream
+   * @param accumulation Accumulation function you want to do
+   * @param convertToKeyVal The function convert plain tuple to k,v pair
+   * @param <K> The type of the key used to group tuples
+   * @param <V> The type of value you want to do accumulation on
+   * @param <O> The output type for each given key that you want to accumulate the value to
+   * @param <ACCU> The type of accumulation you want to keep (it can be in memory or on disk)
+   * @param <STREAM> return type
+   * @return
+   */
   <K, V, O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM accumulateByKey(Accumulation<V, ACCU, O> accumulation,
       Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
 
+  /**
+   * Add {@link KeyedWindowedOperatorImpl} with specified {@link Accumulation} <br>
+   * Accumulate tuples by some key within the window definition in this stream
+   * Also give a name to the accumulation
+   * @param name name of the operator
+   * @param accumulation Accumulation function you want to do
+   * @param convertToKeyVal The function convert plain tuple to k,v pair
+   * @param <K> The type of the key used to group tuples
+   * @param <V> The type of value you want to do accumulation on
+   * @param <O> The output type for each given key that you want to accumulate the value to
+   * @param <ACCU> The type of accumulation you want to keep (it can be in memory or on disk)
+   * @param <STREAM> return type
+   * @return
+   */
+  <K, V, O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM accumulateByKey(String name, Accumulation<V, ACCU, O> accumulation,
+      Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
+
+  /**
+   * Add {@link WindowedOperatorImpl} with specified {@link Accumulation} <br>
+   * Accumulate tuples within the window definition in this stream
+   * @param accumulation Accumulation function you want to do
+   * @param <O> The output type that you want to accumulate the value to
+   * @param <ACCU> The type of accumulation you want to keep (it can be in memory or on disk)
+   * @param <STREAM> return type
+   * @return
+   */
   <O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM accumulate(Accumulation<T, ACCU, O> accumulation);
 
   /**
+   * Add {@link WindowedOperatorImpl} with specified {@link Accumulation} <br>
+   * Accumulate tuples by some key within the window definition in this stream
+   * Also give a name to the accumulation
+   * @param name name of the operator
+   * @param accumulation Accumulation function you want to do
+   * @param <O> The output type that you want to accumulate the value to
+   * @param <ACCU> The type of accumulation you want to keep (it can be in memory or on disk)
+   * @param <STREAM> return type
+   * @return
+   */
+  <O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM accumulate(String name, Accumulation<T, ACCU, O> accumulation);
+
+  /**
+   * Add {@link WindowedOperatorImpl} with specified {@link ReduceFn} <br>
    * Reduce transformation<br>
    * Add an operator to the DAG which merge tuple t1, t2 to new tuple
    * @param reduce reduce function
+   * @param <STREAM> return type
    * @return new stream of same type
    */
   <STREAM extends WindowedStream<Tuple.WindowedTuple<T>>> STREAM reduce(ReduceFn<T> reduce);
 
   /**
+   * Add {@link WindowedOperatorImpl} with specified {@link ReduceFn} <br>
+   * Do reduce transformation<br>
+   * @param name name of the operator
+   * @param reduce reduce function
+   * @param <STREAM> return type
+   * @return new stream of same type
+   */
+  <STREAM extends WindowedStream<Tuple.WindowedTuple<T>>> STREAM reduce(String name, ReduceFn<T> reduce);
+
+  /**
+   * Add {@link KeyedWindowedOperatorImpl} with specified {@link ReduceFn} <br>
    * Reduce transformation by selected key <br>
    * Add an operator to the DAG which merge tuple t1, t2 to new tuple by key
    * @param reduce reduce function
-   * @return new stream of same type
+   * @param convertToKeyVal The function convert plain tuple to k,v pair
+   * @param <K> The type of key you want to group tuples by
+   * @param <V> The type of value extract from tuple T
+   * @param <STREAM> return type
+   * @return new stream of key value pair
    */
   <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, V>>>> STREAM reduceByKey(ReduceFn<V> reduce, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
 
   /**
-   * Fold transformation<br>
-   * Add an operator to the DAG which merge tuple T to accumulated result tuple O
-   * @param initialValue initial result value
+   * Add {@link KeyedWindowedOperatorImpl} with specified {@link ReduceFn} <br>
+   * Reduce transformation by selected key <br>
+   * Add an operator to the DAG which merge tuple t1, t2 to new tuple by key
+   * @param name name of the operator
+   * @param reduce reduce function
+   * @param convertToKeyVal The function convert plain tuple to k,v pair
+   * @param <K> The type of key you want to group tuples by
+   * @param <V> The type of value extract from tuple T
+   * @param <STREAM> return type
+   * @return new stream of key value pair
+   */
+  <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, V>>>> STREAM reduceByKey(String name, ReduceFn<V> reduce, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
+
+
+  /**
+   * Add {@link WindowedOperatorImpl} with specified {@link FoldFn} <br>
+   * Fold transformation <br>
+   * @param fold fold function
+   * @param <O> output type of fold function
+   * @param <STREAM> return type
+   * @return
+   */
+  <O, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM fold(FoldFn<T, O> fold);
+
+  /**
+   * Add {@link WindowedOperatorImpl} with specified {@link FoldFn} <br>
+   * Fold transformation <br>
+   * With a given name
    * @param fold fold function
    * @param <O> Result type
    * @return new stream of type O
    */
-  <O, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM fold(FoldFn<T, O> fold);
-
+  <O, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM fold(String name, FoldFn<T, O> fold);
 
   /**
-   * Fold transformation<br>
-   * Add an operator to the DAG which merge tuple T to accumulated result tuple O
+   * Add {@link KeyedWindowedOperatorImpl} with specified {@link FoldFn} <br>
+   * Fold transformation by key <br>
    * @param fold fold function
    * @param <O> Result type
    * @return new stream of type O
    */
   <K, V, O, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM foldByKey(FoldFn<V, O> fold, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
 
+
+  /**
+   * Add {@link KeyedWindowedOperatorImpl} with specified {@link FoldFn} <br>
+   * Fold transformation by key <br>
+   * with a given name
+   * @param fold fold function
+   * @param <O> Result type
+   * @return new stream of type O
+   */
+  <K, V, O, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM foldByKey(String name, FoldFn<V, O> fold, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal);
 
 
   /**

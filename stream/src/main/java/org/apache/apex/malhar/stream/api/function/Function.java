@@ -18,11 +18,14 @@
  */
 package org.apache.apex.malhar.stream.api.function;
 
+import org.apache.hadoop.classification.InterfaceStability;
+
 /**
  * The top level function interface
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public interface Function
 {
   /**

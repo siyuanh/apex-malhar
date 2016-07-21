@@ -20,6 +20,7 @@ package org.apache.apex.malhar.stream.api.impl;
 
 import org.apache.apex.malhar.lib.fs.LineByLineFileInputOperator;
 import org.apache.apex.malhar.stream.api.ApexStream;
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.api.InputOperator;
 import com.datatorrent.api.Operator;
@@ -30,6 +31,7 @@ import com.datatorrent.contrib.kafka.KafkaSinglePortStringInputOperator;
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public class StreamFactory
 {
   public static ApexStream<String> fromFolder(String inputOperatorName, String folderName)
