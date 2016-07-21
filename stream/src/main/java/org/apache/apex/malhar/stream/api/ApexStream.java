@@ -25,6 +25,7 @@ import org.joda.time.Duration;
 import org.apache.apex.malhar.lib.window.TriggerOption;
 import org.apache.apex.malhar.lib.window.WindowOption;
 import org.apache.apex.malhar.stream.api.function.Function;
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.api.Attribute;
 import com.datatorrent.api.Context.DAGContext;
@@ -39,6 +40,7 @@ import com.datatorrent.api.Operator;
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public interface ApexStream<T>
 {
   /**

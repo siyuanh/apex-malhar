@@ -29,6 +29,7 @@ import java.util.Set;
 
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.api.Attribute;
 import com.datatorrent.api.DAG;
@@ -41,6 +42,7 @@ import com.datatorrent.stram.plan.logical.LogicalPlan;
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public class DagMeta
 {
 

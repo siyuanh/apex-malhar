@@ -41,6 +41,7 @@ import org.apache.apex.malhar.stream.api.impl.accumulation.FoldFn;
 import org.apache.apex.malhar.stream.api.impl.accumulation.ReduceFn;
 import org.apache.apex.malhar.stream.api.impl.accumulation.TopN;
 import org.apache.commons.lang3.mutable.MutableLong;
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.lib.util.KeyValPair;
 
@@ -50,6 +51,7 @@ import com.datatorrent.lib.util.KeyValPair;
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public class ApexWindowedStreamImpl<T> extends ApexStreamImpl<T> implements WindowedStream<T>
 {
 
@@ -59,6 +61,20 @@ public class ApexWindowedStreamImpl<T> extends ApexStreamImpl<T> implements Wind
 
   protected Duration allowedLateness;
 
+  private class ConvertFn<T> implements Function.MapFunction<T, Tuple<T>>
+  {
+
+    @Override
+    public Tuple<T> f(T input)
+    {
+      if (input instanceof Tuple.TimestampedTuple) {
+        return (Tuple.TimestampedTuple)input;
+      } else {
+        return new Tuple.TimestampedTuple<>(System.currentTimeMillis(), input);
+      }
+    }
+  }
+
 
   public ApexWindowedStreamImpl()
   {
@@ -67,9 +83,14 @@ public class ApexWindowedStreamImpl<T> extends ApexStreamImpl<T> implements Wind
   @Override
   public <STREAM extends WindowedStream<Tuple.WindowedTuple<Long>>> STREAM count()
   {
-    WindowedStream<Tuple<Long>> innerstream = map(new Function.MapFunction<T, Tuple<Long>>()
-    {
+    return count(null);
+  }
 
+  @Override
+  public <STREAM extends WindowedStream<Tuple.WindowedTuple<Long>>> STREAM count(String name)
+  {
+    Function.MapFunction<T, Tuple<Long>> kVMap = new Function.MapFunction<T, Tuple<Long>>()
+    {
       @Override
       public Tuple<Long> f(T input)
       {
@@ -79,131 +100,154 @@ public class ApexWindowedStreamImpl<T> extends ApexStreamImpl<T> implements Wind
           return new Tuple.TimestampedTuple<>(System.currentTimeMillis(), 1L);
         }
       }
-    });
-    WindowedOperatorImpl<Long, MutableLong, Long> windowedOperator = createWindowedOperator(new Count());
-    return innerstream.addOperator(windowedOperator, windowedOperator.input, windowedOperator.output);
+    };
+    if (name != null) {
+      WindowedStream<Tuple<Long>> innerstream = map(name + "_premap", kVMap);
+      WindowedOperatorImpl<Long, MutableLong, Long> windowedOperator = createWindowedOperator(new Count());
+      return innerstream.addOperator(name, windowedOperator, windowedOperator.input, windowedOperator.output);
+    } else {
+      WindowedStream<Tuple<Long>> innerstream = map(kVMap);
+      WindowedOperatorImpl<Long, MutableLong, Long> windowedOperator = createWindowedOperator(new Count());
+      return innerstream.addOperator(windowedOperator, windowedOperator.input, windowedOperator.output);
+    }
   }
 
   @Override
   public <K, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, Long>>>> STREAM countByKey(Function.MapFunction<T, Tuple<KeyValPair<K, Long>>> convertToKeyValue)
   {
-    WindowedStream<Tuple<KeyValPair<K, Long>>> kvstream = map(convertToKeyValue);
+    return countByKey(null, convertToKeyValue);
+  }
+
+  @Override
+  public <K, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, Long>>>> STREAM countByKey(String name, Function.MapFunction<T, Tuple<KeyValPair<K, Long>>> convertToKeyValue)
+  {
+
+    Count c = new Count();
+    WindowedStream<Tuple<KeyValPair<K, Long>>> kvstream = map(name != null ? name + "_premap" : convertToKeyValue.toString(), convertToKeyValue);
     KeyedWindowedOperatorImpl<K, Long, MutableLong, Long> keyedWindowedOperator = createKeyedWindowedOperator(new Count());
-    return kvstream.addOperator(keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
+    return kvstream.addOperator(name == null ? c.toString() : name, keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
   }
 
   @Override
   public <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, List<V>>>>> STREAM topByKey(int N, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
   {
-    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(convertToKeyVal);
-    TopN<V> top = new TopN<>();
-    top.setN(N);
-    KeyedWindowedOperatorImpl<K, V, List<V>, List<V>> keyedWindowedOperator = createKeyedWindowedOperator(top);
-    return kvstream.addOperator(keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
+    return topByKey(N, null, convertToKeyVal);
   }
 
+  @Override
+  public <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, List<V>>>>> STREAM topByKey(int N, String name, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
+  {
+    TopN<V> top = new TopN<>();
+    top.setN(N);
+    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(name != null ? name + "_premap" : convertToKeyVal.toString(), convertToKeyVal);
+    KeyedWindowedOperatorImpl<K, V, List<V>, List<V>> keyedWindowedOperator = createKeyedWindowedOperator(top);
+    return kvstream.addOperator(name == null ? top.toString() : name, keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<Tuple.WindowedTuple<List<T>>>> STREAM top(int N, String name)
+  {
+
+    TopN<T> top = new TopN<>();
+    top.setN(N);
+    WindowedStream<Tuple<T>> innerstream = map((name != null) ? name + "_premap" : name, new ConvertFn<T>());
+    WindowedOperatorImpl<T, List<T>, List<T>> windowedOperator = createWindowedOperator(top);
+    return innerstream.addOperator((name == null) ? top.toString() : name, windowedOperator, windowedOperator.input, windowedOperator.output);
+  }
 
   @Override
   public <STREAM extends WindowedStream<Tuple.WindowedTuple<List<T>>>> STREAM top(int N)
   {
-    WindowedStream<Tuple<T>> innerstream = map(new Function.MapFunction<T, Tuple<T>>()
-    {
-      @Override
-      public Tuple<T> f(T input)
-      {
-        if (input instanceof Tuple.TimestampedTuple) {
-          return new Tuple.TimestampedTuple<>(((Tuple.TimestampedTuple)input).getTimestamp(), input);
-        } else {
-          return new Tuple.TimestampedTuple<>(System.currentTimeMillis(), input);
-        }
-      }
-    });
-    WindowedOperatorImpl<T, List<T>, List<T>> windowedOperator = createWindowedOperator(new TopN<T>());
-    return innerstream.addOperator(windowedOperator, windowedOperator.input, windowedOperator.output);
+    return top(N, null);
   }
 
   @Override
   public <K, V, O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM accumulateByKey(Accumulation<V, ACCU, O> accumulation,
       Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
   {
-    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(convertToKeyVal);
+    return accumulateByKey(null, accumulation, convertToKeyVal);
+  }
+
+  @Override
+  public <K, V, O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM accumulateByKey(String name, Accumulation<V, ACCU, O> accumulation,
+      Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
+  {
+    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(name != null ? name + "_premap" : convertToKeyVal.toString(), convertToKeyVal);
     KeyedWindowedOperatorImpl<K, V, ACCU, O> keyedWindowedOperator = createKeyedWindowedOperator(accumulation);
-    return kvstream.addOperator(keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
+    return kvstream.addOperator(name == null ? accumulation.toString() : name, keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
   }
 
   @Override
   public <O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM accumulate(Accumulation<T, ACCU, O> accumulation)
   {
-    WindowedStream<Tuple<T>> innerstream = map(new Function.MapFunction<T, Tuple<T>>()
-    {
-      @Override
-      public Tuple<T> f(T input)
-      {
-        if (input instanceof Tuple.TimestampedTuple) {
-          return new Tuple.TimestampedTuple<>(((Tuple.TimestampedTuple)input).getTimestamp(), input);
-        } else {
-          return new Tuple.TimestampedTuple<>(System.currentTimeMillis(), input);
-        }
-      }
-    });
+    return accumulate(null, accumulation);
+  }
+
+  @Override
+  public <O, ACCU, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM accumulate(String name,
+      Accumulation<T, ACCU, O> accumulation)
+  {
+    WindowedStream<Tuple<T>> innerstream = map(name != null ? name + "_premap" : name, new ConvertFn<T>());
     WindowedOperatorImpl<T, ACCU, O> windowedOperator = createWindowedOperator(accumulation);
-    return innerstream.addOperator(windowedOperator, windowedOperator.input, windowedOperator.output);
+    return innerstream.addOperator(name == null ? accumulation.toString() : name, windowedOperator, windowedOperator.input, windowedOperator.output);
   }
 
   @Override
   public <STREAM extends WindowedStream<Tuple.WindowedTuple<T>>> STREAM reduce(ReduceFn<T> reduce)
   {
-    WindowedStream<Tuple<T>> innerstream = map(new Function.MapFunction<T, Tuple<T>>()
-    {
-      @Override
-      public Tuple<T> f(T input)
-      {
-        if (input instanceof Tuple.TimestampedTuple) {
-          return new Tuple.TimestampedTuple<>(((Tuple.TimestampedTuple)input).getTimestamp(), input);
-        } else {
-          return new Tuple.TimestampedTuple<>(System.currentTimeMillis(), input);
-        }
-      }
-    });
+    return reduce(null, reduce);
+  }
+
+  @Override
+  public <STREAM extends WindowedStream<Tuple.WindowedTuple<T>>> STREAM reduce(String name, ReduceFn<T> reduce)
+  {
+    WindowedStream<Tuple<T>> innerstream = map(name != null ? name + "_premap" : name, new ConvertFn<T>());
     WindowedOperatorImpl<T, T, T> windowedOperator = createWindowedOperator(reduce);
-    return innerstream.addOperator(windowedOperator, windowedOperator.input, windowedOperator.output);
+    return innerstream.addOperator(name == null ? reduce.toString() : name, windowedOperator, windowedOperator.input, windowedOperator.output);
+  }
+
+  @Override
+  public <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, V>>>> STREAM reduceByKey(String name, ReduceFn<V> reduce, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
+  {
+    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(name != null ? name + "_premap" : convertToKeyVal.toString(), convertToKeyVal);
+    KeyedWindowedOperatorImpl<K, V, V, V> keyedWindowedOperator = createKeyedWindowedOperator(reduce);
+    return kvstream.addOperator(name == null ? reduce.toString() : name, keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
   }
 
   @Override
   public <K, V, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, V>>>> STREAM reduceByKey(ReduceFn<V> reduce, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
   {
-    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(convertToKeyVal);
-    KeyedWindowedOperatorImpl<K, V, V, V> keyedWindowedOperator = createKeyedWindowedOperator(reduce);
-    return kvstream.addOperator(keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
+    return reduceByKey(null, reduce, convertToKeyVal);
   }
-
 
   @Override
   public <O, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM fold(FoldFn<T, O> fold)
   {
-    WindowedStream<Tuple<T>> innerstream = map(new Function.MapFunction<T, Tuple<T>>()
-    {
-      @Override
-      public Tuple<T> f(T input)
-      {
-        if (input instanceof Tuple.TimestampedTuple) {
-          return new Tuple.TimestampedTuple<>(((Tuple.TimestampedTuple)input).getTimestamp(), input);
-        } else {
-          return new Tuple.TimestampedTuple<>(System.currentTimeMillis(), input);
-        }
-      }
-    });
+    return fold(null, fold);
+  }
 
+  @Override
+  public <O, STREAM extends WindowedStream<Tuple.WindowedTuple<O>>> STREAM fold(String name, FoldFn<T, O> fold)
+  {
+    WindowedStream<Tuple<T>> innerstream = map(name != null ? name + "_premap" : name, new ConvertFn<T>());
     WindowedOperatorImpl<T, O, O> windowedOperator = createWindowedOperator(fold);
-    return innerstream.addOperator(windowedOperator, windowedOperator.input, windowedOperator.output);
+    return innerstream.addOperator(name == null ? fold.toString() : name, windowedOperator, windowedOperator.input, windowedOperator.output);
   }
 
   @Override
   public <K, V, O, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM foldByKey(FoldFn<V, O> fold, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
   {
-    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(convertToKeyVal);
+    return foldByKey(null, fold, convertToKeyVal);
+  }
+
+  @Override
+  public <K, V, O, STREAM extends WindowedStream<Tuple.WindowedTuple<KeyValPair<K, O>>>> STREAM foldByKey(String
+      name, FoldFn<V, O> fold, Function.MapFunction<T, Tuple<KeyValPair<K, V>>> convertToKeyVal)
+  {
+    WindowedStream<Tuple<KeyValPair<K, V>>> kvstream = map(name != null ? name + "_premap" : convertToKeyVal.toString(), convertToKeyVal);
     KeyedWindowedOperatorImpl<K, V, O, O> keyedWindowedOperator = createKeyedWindowedOperator(fold);
-    return kvstream.addOperator(keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
+    return kvstream.addOperator(name == null ? fold.toString() : name, keyedWindowedOperator, keyedWindowedOperator.input, keyedWindowedOperator.output);
+
   }
 
   @Override

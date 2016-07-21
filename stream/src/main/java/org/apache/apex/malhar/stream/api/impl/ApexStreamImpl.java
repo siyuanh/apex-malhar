@@ -40,6 +40,7 @@ import org.apache.apex.malhar.stream.api.function.Function.FlatMapFunction;
 import org.apache.apex.malhar.stream.api.operator.FunctionOperator;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.api.Attribute;
 import com.datatorrent.api.Context;
@@ -56,6 +57,7 @@ import com.datatorrent.stram.plan.logical.LogicalPlan;
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public class ApexStreamImpl<T> implements ApexStream<T>
 {
 
@@ -197,6 +199,9 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   @SuppressWarnings("unchecked")
   public <O, STREAM extends ApexStream<O>> STREAM map(String name, Function.MapFunction<T, O> mf)
   {
+    if (name == null) {
+      name = mf.toString();
+    }
     FunctionOperator.MapFunctionOperator<T, O> opt = new FunctionOperator.MapFunctionOperator<>(mf);
     return (STREAM)addOperator(name, opt, opt.input, opt.output);
   }
@@ -211,6 +216,9 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   @SuppressWarnings("unchecked")
   public <O, STREAM extends ApexStream<O>> STREAM flatMap(String name, FlatMapFunction<T, O> flatten)
   {
+    if (name == null) {
+      name = flatten.toString();
+    }
     FunctionOperator.FlatMapFunctionOperator<T, O> opt = new FunctionOperator.FlatMapFunctionOperator<>(flatten);
     return (STREAM)addOperator(name, opt, opt.input, opt.output);
   }
@@ -225,6 +233,9 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   @SuppressWarnings("unchecked")
   public <STREAM extends ApexStream<T>> STREAM filter(String name, final Function.FilterFunction<T> filter)
   {
+    if (name == null) {
+      name = filter.toString();
+    }
     FunctionOperator.FilterFunctionOperator<T> filterFunctionOperator = new FunctionOperator.FilterFunctionOperator<>(filter);
     return (STREAM)addOperator(name, filterFunctionOperator, filterFunctionOperator.input, filterFunctionOperator.output);
   }
