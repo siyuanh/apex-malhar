@@ -48,26 +48,7 @@ public interface Function
   }
 
   /**
-   * An interface defines a reduce transformation
-   * @param <T>
-   */
-  public static interface ReduceFunction<T> extends Function
-  {
-    T reduce(T t1, T t2);
-  }
-
-  /**
-   * An interface that defines a fold transformation
-   * @param <I>
-   * @param <O>
-   */
-  public static interface FoldFunction<I, O> extends Function
-  {
-    O fold(I input, O output);
-  }
-
-  /**
-   * An interface that defines flatmap transforation
+   * An interface that defines flatmap transformation
    * @param <I>
    * @param <O>
    */
