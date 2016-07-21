@@ -289,68 +289,6 @@ public class FunctionOperator<OUT, FUNCTION extends Function> implements Operato
     }
   }
 
-  public static class FoldFunctionOperator<IN, OUT> extends FunctionOperator<OUT, Function.FoldFunction<IN, OUT>>
-  {
-
-    public FoldFunctionOperator()
-    {
-
-    }
-
-    @NotNull
-    private OUT foldVal;
-
-    public final transient DefaultInputPort<IN> input = new DefaultInputPort<IN>()
-    {
-      @Override
-      public void process(IN t)
-      {
-        Function.FoldFunction<IN, OUT> f = getFunction();
-        // fold the value
-        foldVal = f.fold(t, foldVal);
-        output.emit(foldVal);
-      }
-    };
-
-    public FoldFunctionOperator(Function.FoldFunction<IN, OUT> f, OUT initialVal)
-    {
-      super(f);
-      this.foldVal = initialVal;
-    }
-  }
-
-  public static class ReduceFunctionOperator<IN> extends FunctionOperator<IN, Function.ReduceFunction<IN>>
-  {
-
-    public ReduceFunctionOperator()
-    {
-
-    }
-
-    @NotNull
-    private IN reducedVal;
-
-    public final transient DefaultInputPort<IN> input = new DefaultInputPort<IN>()
-    {
-      @Override
-      public void process(IN t)
-      {
-        Function.ReduceFunction<IN> f = getFunction();
-        // fold the value
-        if (reducedVal == null) {
-          reducedVal = t;
-          return;
-        }
-        reducedVal = f.reduce(t, reducedVal);
-        output.emit(reducedVal);
-      }
-    };
-
-    public ReduceFunctionOperator(Function.ReduceFunction<IN> f)
-    {
-      super(f);
-    }
-  }
 
   public static class FilterFunctionOperator<IN> extends FunctionOperator<IN, Function.FilterFunction<IN>>
   {
