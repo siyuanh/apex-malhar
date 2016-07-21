@@ -30,6 +30,7 @@ import javax.validation.constraints.NotNull;
 
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.esotericsoftware.reflectasm.shaded.org.objectweb.asm.ClassReader;
 import com.esotericsoftware.reflectasm.shaded.org.objectweb.asm.ClassWriter;
@@ -45,6 +46,7 @@ import com.datatorrent.api.Operator;
  *
  * @since 3.4.0
  */
+@InterfaceStability.Evolving
 public class FunctionOperator<OUT, FUNCTION extends Function> implements Operator
 {
   private byte[] annonymousFunctionClass;

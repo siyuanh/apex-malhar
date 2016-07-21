@@ -18,9 +18,12 @@
  */
 package org.apache.apex.malhar.stream.api;
 
+import org.apache.hadoop.classification.InterfaceStability;
+
 /**
  * A group of Streams and transforms in between
  */
+@InterfaceStability.Evolving
 public abstract class CompositeStreamTransform<IN, OUT>
 {
 
