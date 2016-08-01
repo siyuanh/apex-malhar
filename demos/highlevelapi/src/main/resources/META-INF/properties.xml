@@ -26,6 +26,8 @@
     <value>some-default-value (if value is not specified, it is required from the user or custom config when launching)</value>
   </property>
   -->
+
+  <!-- Properties for TwitterAutoComplete -->
   <property>
     <name>dt.application.TwitterAutoComplete.operator.tweetSampler.consumerKey</name>
     <value></value>
@@ -42,5 +44,98 @@
     <name>dt.application.TwitterAutoComplete.operator.tweetSampler.accessTokenSecret</name>
     <value></value>
   </property>
+
+  <!-- Properties for StreamingWordExtract -->
+  <property>
+    <name>dt.application.StreamingWordExtract.operator.jdbcOutput.prop.store.userName</name>
+    <value>root</value>
+  </property>
+  <property>
+    <name>dt.application.StreamingWordExtract.operator.jdbcOutput.prop.store.password</name>
+    <value>password</value>
+  </property>
+  <property>
+    <name>dt.application.StreamingWordExtract.operator.jdbcOutput.prop.store.databaseDriver</name>
+    <value>org.h2.Driver</value>
+  </property>
+  <property>
+    <name>dt.application.StreamingWordExtract.operator.jdbcOutput.prop.batchSize</name>
+    <value>5</value>
+  </property>
+  <property>
+    <name>dt.application.StreamingWordExtract.operator.jdbcOutput.port.input.attr.TUPLE_CLASS</name>
+    <value>org.apache.apex.malhar.stream.sample.complete.PojoEvent</value>
+  </property>
+  <property>
+    <name>dt.application.StreamingWordExtract.operator.jdbcOutput.prop.store.databaseUrl</name>
+    <value>jdbc:h2:~/test</value>
+  </property>
+  <property>
+    <name>dt.application.StreamingWordExtract.operator.jdbcOutput.prop.tablename</name>
+    <value>Test</value>
+  </property>
+
+  <!-- Properties for MaxPerKeyExamples -->
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.prop.store.userName</name>
+    <value>root</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.prop.store.password</name>
+    <value>password</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.prop.store.databaseDriver</name>
+    <value>org.h2.Driver</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.prop.batchSize</name>
+    <value>5</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.port.outputPort.attr.TUPLE_CLASS</name>
+    <value>org.apache.apex.malhar.stream.sample.cookbook.InputPojo</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.prop.store.databaseUrl</name>
+    <value>jdbc:h2:~/test</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.prop.tableName</name>
+    <value>InputTable</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcInput.prop.query</name>
+    <value>SELECT * FROM InputTable;</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcOutput.prop.store.userName</name>
+    <value>root</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcOutput.prop.store.password</name>
+    <value>password</value>
+  </property>
+  <property>
+    <name>dt.operator.jdbcOutput.prop.store.databaseDriver</name>
+    <value>org.h2.Driver</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcOutput.prop.batchSize</name>
+    <value>5</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcOutput.port.input.attr.TUPLE_CLASS</name>
+    <value>org.apache.apex.malhar.stream.sample.cookbook.OutputPojo</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcOutput.prop.store.databaseUrl</name>
+    <value>jdbc:h2:~/test</value>
+  </property>
+  <property>
+    <name>dt.application.MaxPerKeyExamples.operator.jdbcOutput.prop.tablename</name>
+    <value>OutputTable</value>
+  </property>
+
 </configuration>
 

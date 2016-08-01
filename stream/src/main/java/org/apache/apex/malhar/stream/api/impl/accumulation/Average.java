@@ -18,58 +18,47 @@
  */
 package org.apache.apex.malhar.stream.api.impl.accumulation;
 
-import java.util.Comparator;
 import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.commons.lang3.tuple.MutablePair;
 
 /**
- * Max accumulation.
+ * Average Accumulation
  */
-public class Max<T> implements Accumulation<T, T, T>
+public class Average implements Accumulation<Double, MutablePair<Double, Long>, Double>
 {
-  
-  Comparator<T> comparator;
-  
-  public void setComparator(Comparator<T> comparator)
+  @Override
+  public MutablePair<Double, Long> defaultAccumulatedValue()
   {
-    this.comparator = comparator;
+    return new MutablePair<>(0.0, 0L);
   }
   
   @Override
-  public T defaultAccumulatedValue()
+  public MutablePair<Double, Long> accumulate(MutablePair<Double, Long> accu, Double input)
   {
-    return null;
+    accu.setLeft(accu.getLeft() * ((double)accu.getRight() / (accu.getRight() + 1)) + input / (accu.getRight() + 1));
+    accu.setRight(accu.getRight() + 1);
+    return accu;
   }
   
   @Override
-  public T accumulate(T accumulatedValue, T input)
+  public MutablePair<Double, Long> merge(MutablePair<Double, Long> accu1, MutablePair<Double, Long> accu2)
   {
-    if (accumulatedValue == null) {
-      return input;
-    } else if (comparator != null) {
-      return (comparator.compare(input, accumulatedValue) > 0) ? input : accumulatedValue;
-    } else if (input instanceof Comparable) {
-      return (((Comparable)input).compareTo(accumulatedValue) > 0) ? input : accumulatedValue;
-    } else {
-      throw new RuntimeException("Tuple cannot be compared");
-    }
+    accu1.setLeft(accu1.getLeft() * ((double)accu1.getRight() / accu1.getRight() + accu2.getRight()) +
+        accu2.getLeft() * ((double)accu2.getRight() / accu1.getRight() + accu2.getRight()));
+    accu1.setRight(accu1.getRight() + accu2.getRight());
+    return accu1;
   }
   
   @Override
-  public T merge(T accumulatedValue1, T accumulatedValue2)
+  public Double getOutput(MutablePair<Double, Long> accumulatedValue)
   {
-    return accumulate(accumulatedValue1, accumulatedValue2);
+    return accumulatedValue.getLeft();
   }
   
   @Override
-  public T getOutput(T accumulatedValue)
-  {
-    return accumulatedValue;
-  }
-  
-  @Override
-  public T getRetraction(T value)
+  public Double getRetraction(Double value)
   {
     // TODO: Need to add implementation for retraction.
-    return null;
+    return 0.0;
   }
 }

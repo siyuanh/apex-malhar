@@ -16,29 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.sample.complete;
+package org.apache.apex.malhar.stream.sample;
+
+import org.junit.Test;
+import org.apache.hadoop.conf.Configuration;
+import com.datatorrent.api.LocalMode;
 
 /**
- * Tuple Class for JdbcOutput of StreamingWordExtract.
+ * Test for {@link WindowedWordCount}.
  */
-public class PojoEvent extends Object
+public class WindowedWordCountTest
 {
-  private String string_value;
-  
-  @Override
-  public String toString()
+  @Test
+  public void WindowedWordCountTest()
   {
-    return "PojoEvent [string_value=" + getString_value() + "]";
+    LocalMode lma = LocalMode.newInstance();
+    Configuration conf = new Configuration(false);
+  
+    WindowedWordCount app = new WindowedWordCount();
+    try {
+      lma.prepareDAG(app, conf);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    LocalMode.Controller lc = lma.getController();
+    
+    lc.run(10000);
   }
   
-  public void setString_value(String newString)
-  {
-    this.string_value = newString;
-  }
-  
-  public String getString_value()
-  {
-    return this.string_value;
-  }
 }
-

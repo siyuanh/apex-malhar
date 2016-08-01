@@ -18,58 +18,43 @@
  */
 package org.apache.apex.malhar.stream.api.impl.accumulation;
 
-import java.util.Comparator;
 import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.commons.lang.mutable.MutableDouble;
 
 /**
- * Max accumulation.
+ * Sum Accumulation for doubles.
  */
-public class Max<T> implements Accumulation<T, T, T>
+public class SumDouble implements Accumulation<Double, MutableDouble, Double>
 {
-  
-  Comparator<T> comparator;
-  
-  public void setComparator(Comparator<T> comparator)
+  @Override
+  public MutableDouble defaultAccumulatedValue()
   {
-    this.comparator = comparator;
+    return new MutableDouble(0.0);
   }
   
   @Override
-  public T defaultAccumulatedValue()
+  public MutableDouble accumulate(MutableDouble accumulatedValue, Double input)
   {
-    return null;
-  }
-  
-  @Override
-  public T accumulate(T accumulatedValue, T input)
-  {
-    if (accumulatedValue == null) {
-      return input;
-    } else if (comparator != null) {
-      return (comparator.compare(input, accumulatedValue) > 0) ? input : accumulatedValue;
-    } else if (input instanceof Comparable) {
-      return (((Comparable)input).compareTo(accumulatedValue) > 0) ? input : accumulatedValue;
-    } else {
-      throw new RuntimeException("Tuple cannot be compared");
-    }
-  }
-  
-  @Override
-  public T merge(T accumulatedValue1, T accumulatedValue2)
-  {
-    return accumulate(accumulatedValue1, accumulatedValue2);
-  }
-  
-  @Override
-  public T getOutput(T accumulatedValue)
-  {
+    accumulatedValue.add(input);
     return accumulatedValue;
   }
   
   @Override
-  public T getRetraction(T value)
+  public MutableDouble merge(MutableDouble accumulatedValue1, MutableDouble accumulatedValue2)
   {
-    // TODO: Need to add implementation for retraction.
-    return null;
+    accumulatedValue1.add(accumulatedValue2);
+    return accumulatedValue1;
+  }
+  
+  @Override
+  public Double getOutput(MutableDouble accumulatedValue)
+  {
+    return accumulatedValue.doubleValue();
+  }
+  
+  @Override
+  public Double getRetraction(Double value)
+  {
+    return -value;
   }
 }

@@ -20,7 +20,6 @@ package org.apache.apex.malhar.stream.api.impl.accumulation;
 
 import java.util.Comparator;
 import java.util.concurrent.Callable;
-
 import org.joda.time.Duration;
 import org.junit.Assert;
 import org.junit.Test;
@@ -37,11 +36,10 @@ import com.datatorrent.api.InputOperator;
 import com.datatorrent.common.util.BaseOperator;
 
 /**
- * Test for Max accumulation
+ * Test for {@link Min}.
  */
-public class MaxTest
+public class MinTest
 {
-  
   public static class NumGen extends BaseOperator implements InputOperator
   {
     public transient DefaultOutputPort<Integer> output = new DefaultOutputPort<>();
@@ -67,33 +65,33 @@ public class MaxTest
   
   public static class Collector extends BaseOperator
   {
-    private static int max;
+    private static int min;
     
     public transient DefaultInputPort<Tuple.WindowedTuple<Integer>> input = new DefaultInputPort<Tuple.WindowedTuple<Integer>>()
     {
       @Override
       public void process(Tuple.WindowedTuple<Integer> tuple)
       {
-        max = tuple.getValue();
+        min = tuple.getValue();
       }
     };
     
-    public int getMax()
+    public int getMin()
     {
-      return max;
+      return min;
     }
   }
   
   
   @Test
-  public void MaxTest()
+  public void MinTest()
   {
-    Max<Integer> max = new Max<>();
+    Min<Integer> min = new Min<>();
     
-    Assert.assertEquals((Integer)5, max.accumulate(5, 3));
-    Assert.assertEquals((Integer)6, max.accumulate(4, 6));
-    Assert.assertEquals((Integer)5, max.merge(5, 2));
-  
+    Assert.assertEquals((Integer)3, min.accumulate(5, 3));
+    Assert.assertEquals((Integer)4, min.accumulate(4, 6));
+    Assert.assertEquals((Integer)2, min.merge(5, 2));
+    
     Comparator<Integer> com = new Comparator<Integer>()
     {
       @Override
@@ -103,10 +101,10 @@ public class MaxTest
       }
     };
     
-    max.setComparator(com);
-    Assert.assertEquals((Integer)3, max.accumulate(5, 3));
-    Assert.assertEquals((Integer)4, max.accumulate(4, 6));
-    Assert.assertEquals((Integer)2, max.merge(5, 2));
+    min.setComparator(com);
+    Assert.assertEquals((Integer)5, min.accumulate(5, 3));
+    Assert.assertEquals((Integer)6, min.accumulate(4, 6));
+    Assert.assertEquals((Integer)5, min.merge(5, 2));
   }
   
   
@@ -117,16 +115,16 @@ public class MaxTest
     Collector collector = new Collector();
     ApexStream<Integer> stream = StreamFactory.fromInput(numGen, numGen.output);
     stream.window(new WindowOption.GlobalWindow(), new TriggerOption().withEarlyFiringsAtEvery(Duration.standardSeconds(2)))
-        .accumulate(new Max<Integer>()).addOperator(collector, collector.input, null).runEmbedded(false, 600000, new Callable<Boolean>()
+        .accumulate(new Min<Integer>()).addOperator(collector, collector.input, null).runEmbedded(false, 600000, new Callable<Boolean>()
         {
           @Override
           public Boolean call() throws Exception
           {
-            return NumGen.count > 25;
+            return MinTest.NumGen.count > 25;
           }
         });
     
-    Assert.assertEquals(collector.getMax(), 7);
+    Assert.assertEquals(collector.getMin(), 0);
     
   }
 }

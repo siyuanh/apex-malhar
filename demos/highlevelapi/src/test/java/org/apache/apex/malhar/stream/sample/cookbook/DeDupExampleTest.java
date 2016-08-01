@@ -18,59 +18,31 @@
  */
 package org.apache.apex.malhar.stream.sample.cookbook;
 
+import org.junit.Test;
+import org.apache.hadoop.conf.Configuration;
+import com.datatorrent.api.LocalMode;
+
+
 /**
- * Tuple class for JDBC input.
+ * Test for {@link DeDupExample}.
  */
-public class InputPojo extends Object
+public class DeDupExampleTest
 {
-  private int month;
-  private int day;
-  private int year;
-  private double meanTemp;
-  
-  @Override
-  public String toString()
+  @Test
+  public void DeDupExampleTest()
   {
-    return "PojoEvent [month=" + getMonth() + ", day=" + getDay() + ", year=" + getYear() + ", meanTemp=" + getMeanTemp() + "]";
+    LocalMode lma = LocalMode.newInstance();
+    Configuration conf = new Configuration(false);
+    
+    DeDupExample app = new DeDupExample();
+    try {
+      lma.prepareDAG(app, conf);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    LocalMode.Controller lc = lma.getController();
+  
+    lc.run(5000);
   }
   
-  public void setMonth(int month)
-  {
-    this.month = month;
-  }
-  
-  public int getMonth()
-  {
-    return this.month;
-  }
-  
-  public void setDay(int day)
-  {
-    this.day = day;
-  }
-  
-  public int getDay()
-  {
-    return day;
-  }
-  
-  public void setYear(int year)
-  {
-    this.year = year;
-  }
-  
-  public int getYear()
-  {
-    return year;
-  }
-  
-  public void setMeanTemp(double meanTemp)
-  {
-    this.meanTemp = meanTemp;
-  }
-  
-  public double getMeanTemp()
-  {
-    return meanTemp;
-  }
 }

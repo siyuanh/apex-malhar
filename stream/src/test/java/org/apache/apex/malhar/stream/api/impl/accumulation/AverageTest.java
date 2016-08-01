@@ -16,29 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.sample.complete;
+package org.apache.apex.malhar.stream.api.impl.accumulation;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.apache.commons.lang3.tuple.MutablePair;
 
 /**
- * Tuple Class for JdbcOutput of StreamingWordExtract.
+ * Test for {@link Average}.
  */
-public class PojoEvent extends Object
+public class AverageTest
 {
-  private String string_value;
-  
-  @Override
-  public String toString()
+  @Test
+  public void AverageTest()
   {
-    return "PojoEvent [string_value=" + getString_value() + "]";
-  }
-  
-  public void setString_value(String newString)
-  {
-    this.string_value = newString;
-  }
-  
-  public String getString_value()
-  {
-    return this.string_value;
+    Average ave = new Average();
+    MutablePair<Double, Long> accu = ave.defaultAccumulatedValue();
+    
+    for (int i = 1; i <= 10; i++) {
+      accu = ave.accumulate(accu, (double)i);
+    }
+    Assert.assertTrue(5.5 == accu.getLeft());
   }
 }
-

@@ -18,58 +18,51 @@
  */
 package org.apache.apex.malhar.stream.api.impl.accumulation;
 
-import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.apex.malhar.lib.window.Accumulation;
 
 /**
- * Max accumulation.
+ * RemoveDuplicates Accumulation.
+ * @param <T>
  */
-public class Max<T> implements Accumulation<T, T, T>
+public class RemoveDuplicates<T> implements Accumulation<T, Set<T>, List<T>>
 {
-  
-  Comparator<T> comparator;
-  
-  public void setComparator(Comparator<T> comparator)
+  @Override
+  public Set<T> defaultAccumulatedValue()
   {
-    this.comparator = comparator;
+    return new HashSet<>();
   }
   
   @Override
-  public T defaultAccumulatedValue()
+  public Set<T> accumulate(Set<T> accumulatedValue, T input)
   {
-    return null;
-  }
-  
-  @Override
-  public T accumulate(T accumulatedValue, T input)
-  {
-    if (accumulatedValue == null) {
-      return input;
-    } else if (comparator != null) {
-      return (comparator.compare(input, accumulatedValue) > 0) ? input : accumulatedValue;
-    } else if (input instanceof Comparable) {
-      return (((Comparable)input).compareTo(accumulatedValue) > 0) ? input : accumulatedValue;
-    } else {
-      throw new RuntimeException("Tuple cannot be compared");
-    }
-  }
-  
-  @Override
-  public T merge(T accumulatedValue1, T accumulatedValue2)
-  {
-    return accumulate(accumulatedValue1, accumulatedValue2);
-  }
-  
-  @Override
-  public T getOutput(T accumulatedValue)
-  {
+    accumulatedValue.add(input);
     return accumulatedValue;
   }
   
   @Override
-  public T getRetraction(T value)
+  public Set<T> merge(Set<T> accumulatedValue1, Set<T> accumulatedValue2)
+  {
+    for (T item : accumulatedValue2) {
+      accumulatedValue1.add(item);
+    }
+    return accumulatedValue1;
+  }
+  
+  @Override
+  public List<T> getOutput(Set<T> accumulatedValue)
+  {
+    return new ArrayList<>(accumulatedValue);
+  }
+  
+  @Override
+  public List<T> getRetraction(List<T> value)
   {
     // TODO: Need to add implementation for retraction.
-    return null;
+    return new ArrayList<>(value);
   }
 }

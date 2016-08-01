@@ -16,61 +16,45 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.sample.cookbook;
+package org.apache.apex.malhar.stream.api.impl.accumulation;
+
+import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.commons.lang.mutable.MutableInt;
 
 /**
- * Tuple class for JDBC input.
+ * Sum accumulation for integers.
  */
-public class InputPojo extends Object
+public class SumInt implements Accumulation<Integer, MutableInt, Integer>
 {
-  private int month;
-  private int day;
-  private int year;
-  private double meanTemp;
+  @Override
+  public MutableInt defaultAccumulatedValue()
+  {
+    return new MutableInt(0);
+  }
   
   @Override
-  public String toString()
+  public MutableInt accumulate(MutableInt accumulatedValue, Integer input)
   {
-    return "PojoEvent [month=" + getMonth() + ", day=" + getDay() + ", year=" + getYear() + ", meanTemp=" + getMeanTemp() + "]";
+    accumulatedValue.add(input);
+    return accumulatedValue;
   }
   
-  public void setMonth(int month)
+  @Override
+  public MutableInt merge(MutableInt accumulatedValue1, MutableInt accumulatedValue2)
   {
-    this.month = month;
+    accumulatedValue1.add(accumulatedValue2);
+    return accumulatedValue1;
   }
   
-  public int getMonth()
+  @Override
+  public Integer getOutput(MutableInt accumulatedValue)
   {
-    return this.month;
+    return accumulatedValue.intValue();
   }
   
-  public void setDay(int day)
+  @Override
+  public Integer getRetraction(Integer value)
   {
-    this.day = day;
-  }
-  
-  public int getDay()
-  {
-    return day;
-  }
-  
-  public void setYear(int year)
-  {
-    this.year = year;
-  }
-  
-  public int getYear()
-  {
-    return year;
-  }
-  
-  public void setMeanTemp(double meanTemp)
-  {
-    this.meanTemp = meanTemp;
-  }
-  
-  public double getMeanTemp()
-  {
-    return meanTemp;
+    return -value;
   }
 }
