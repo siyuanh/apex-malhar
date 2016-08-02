@@ -21,9 +21,45 @@ package org.apache.apex.malhar.stream.api.impl.accumulation;
 import org.apache.apex.malhar.lib.window.Accumulation;
 
 /**
- * Reduce Accumulation
+ * An easy to use reduce Accumulation
  * @param <INPUT>
  */
-public interface ReduceFn<INPUT> extends Accumulation<INPUT, INPUT, INPUT>
+public abstract class ReduceFn<INPUT> implements Accumulation<INPUT, INPUT, INPUT>
 {
+  @Override
+  public INPUT defaultAccumulatedValue()
+  {
+    return null;
+  }
+
+  @Override
+  public INPUT accumulate(INPUT accumulatedValue, INPUT input)
+  {
+    if (accumulatedValue == null) {
+      return input;
+    }
+    return reduce(accumulatedValue, input);
+  }
+
+  @Override
+  public INPUT merge(INPUT accumulatedValue1, INPUT accumulatedValue2)
+  {
+    return reduce(accumulatedValue1, accumulatedValue2);
+  }
+
+  @Override
+  public INPUT getOutput(INPUT accumulatedValue)
+  {
+    return accumulatedValue;
+  }
+
+  @Override
+  public INPUT getRetraction(INPUT value)
+  {
+    return null;
+  }
+
+  public abstract INPUT reduce(INPUT input1, INPUT input2);
+
+
 }

@@ -21,15 +21,45 @@ package org.apache.apex.malhar.stream.api.impl.accumulation;
 import org.apache.apex.malhar.lib.window.Accumulation;
 
 /**
- * Fold Accumulation
+ * Fold Accumulation Adaptor class
  */
-public interface FoldFn<INPUT, OUTPUT> extends Accumulation<INPUT, OUTPUT, OUTPUT>
+public abstract class FoldFn<INPUT, OUTPUT> implements Accumulation<INPUT, OUTPUT, OUTPUT>
 {
 
-  /**
-   * Set the initial value for the fold transformation
-   * @param output
-   */
-  void setInitialValue(OUTPUT output);
+  public FoldFn()
+  {
+  }
 
+  public FoldFn(OUTPUT initialVal)
+  {
+    this.initialVal = initialVal;
+  }
+
+  private OUTPUT initialVal;
+
+  @Override
+  public OUTPUT defaultAccumulatedValue()
+  {
+    return initialVal;
+  }
+
+  @Override
+  public OUTPUT accumulate(OUTPUT accumulatedValue, INPUT input)
+  {
+    return fold(accumulatedValue, input);
+  }
+
+  @Override
+  public OUTPUT getOutput(OUTPUT accumulatedValue)
+  {
+    return accumulatedValue;
+  }
+
+  @Override
+  public OUTPUT getRetraction(OUTPUT value)
+  {
+    return null;
+  }
+
+  abstract OUTPUT fold(OUTPUT result, INPUT input);
 }

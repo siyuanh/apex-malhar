@@ -20,11 +20,14 @@ package org.apache.apex.malhar.stream.api.impl;
 
 import org.apache.apex.malhar.lib.fs.LineByLineFileInputOperator;
 import org.apache.apex.malhar.stream.api.ApexStream;
+import org.apache.apex.malhar.stream.api.Option;
 import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.api.InputOperator;
 import com.datatorrent.api.Operator;
 import com.datatorrent.contrib.kafka.KafkaSinglePortStringInputOperator;
+
+import static org.apache.apex.malhar.stream.api.Option.Options.name;
 
 /**
  * A Factory class to build from different kind of input source
@@ -34,25 +37,25 @@ import com.datatorrent.contrib.kafka.KafkaSinglePortStringInputOperator;
 @InterfaceStability.Evolving
 public class StreamFactory
 {
-  public static ApexStream<String> fromFolder(String inputOperatorName, String folderName)
+  public static ApexStream<String> fromFolder(String folderName, Option... opts)
   {
     LineByLineFileInputOperator fileLineInputOperator = new LineByLineFileInputOperator();
     fileLineInputOperator.setDirectory(folderName);
     ApexStreamImpl<String> newStream = new ApexStreamImpl<>();
-    return newStream.addOperator(inputOperatorName, fileLineInputOperator, null, fileLineInputOperator.output);
+    return newStream.addOperator(fileLineInputOperator, null, fileLineInputOperator.output, opts);
   }
 
   public static ApexStream<String> fromFolder(String folderName)
   {
-    return fromFolder("FolderScanner", folderName);
+    return fromFolder(folderName, name("FolderScanner"));
   }
 
   public static ApexStream<String> fromKafka08(String zookeepers, String topic)
   {
-    return fromKafka08("Kafka08Input", zookeepers, topic);
+    return fromKafka08(zookeepers, topic, name("Kafka08Input"));
   }
 
-  public static ApexStream<String> fromKafka08(String inputName, String zookeepers, String topic)
+  public static ApexStream<String> fromKafka08(String zookeepers, String topic, Option... opts)
   {
     KafkaSinglePortStringInputOperator kafkaSinglePortStringInputOperator = new KafkaSinglePortStringInputOperator();
     kafkaSinglePortStringInputOperator.getConsumer().setTopic(topic);
@@ -61,25 +64,16 @@ public class StreamFactory
     return newStream.addOperator(kafkaSinglePortStringInputOperator, null, kafkaSinglePortStringInputOperator.outputPort);
   }
 
-  public static <T> ApexStream<T> fromInput(String inputOperatorName, InputOperator operator, Operator.OutputPort<T> outputPort)
+  public static <T> ApexStream<T> fromInput(InputOperator operator, Operator.OutputPort<T> outputPort, Option... opts)
   {
     ApexStreamImpl<T> newStream = new ApexStreamImpl<>();
-    return newStream.addOperator(inputOperatorName, operator, null, outputPort);
+    return newStream.addOperator(operator, null, outputPort, opts);
   }
 
-  public static <T> ApexStream<T> fromInput(InputOperator operator, Operator.OutputPort<T> outputPort)
-  {
-    return fromInput(operator.toString(), operator, outputPort);
-  }
-
-  public static ApexStream<String> fromKafka09(String name, String brokers, String topic)
+  public static ApexStream<String> fromKafka09(String brokers, String topic, Option... opts)
   {
     throw new UnsupportedOperationException();
   }
 
-  public static ApexStream<String> fromKafka09(String brokers, String topic)
-  {
-    return fromKafka09("KafkaInput", brokers, topic);
-  }
 
 }

@@ -18,7 +18,10 @@
  */
 package org.apache.apex.malhar.stream.api.function;
 
+import org.apache.apex.malhar.lib.window.Tuple;
 import org.apache.hadoop.classification.InterfaceStability;
+
+import com.datatorrent.lib.util.KeyValPair;
 
 /**
  * The top level function interface
@@ -47,6 +50,11 @@ public interface Function
     O f(I input);
   }
 
+  public static interface ToKeyValue<T, K, V> extends MapFunction<T, Tuple<KeyValPair<K, V>>>
+  {
+
+  }
+
   /**
    * An interface that defines flatmap transformation
    * @param <I>
@@ -60,7 +68,8 @@ public interface Function
    * An interface that defines filter transformation
    * @param <T>
    */
-  public static interface FilterFunction<T> extends MapFunction<T, Boolean>
+  public static interface FilterFunction<T> extends Function
   {
+    boolean f(T input);
   }
 }

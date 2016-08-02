@@ -58,7 +58,7 @@ public class ApplicationWithStreamAPI implements StreamingApplication
         });
     stream.print();
     stream.window(new WindowOption.GlobalWindow(), new TriggerOption().withEarlyFiringsAtEvery(Duration
-        .millis(1000)).accumulatingFiredPanes()).countByKey(new Function.MapFunction<String, Tuple<KeyValPair<String, Long>>>()
+        .millis(1000)).accumulatingFiredPanes()).countByKey(new Function.ToKeyValue<String, String, Long>()
         {
           @Override
           public Tuple<KeyValPair<String, Long>> f(String input)
