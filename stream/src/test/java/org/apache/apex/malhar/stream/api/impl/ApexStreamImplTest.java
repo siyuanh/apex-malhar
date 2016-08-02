@@ -33,6 +33,8 @@ import com.datatorrent.api.DefaultOutputPort;
 import com.datatorrent.common.util.BaseOperator;
 import com.datatorrent.stram.plan.logical.LogicalPlan;
 
+import static org.apache.apex.malhar.stream.api.Option.Options.name;
+
 /**
  * Unit test to default implementation of ApexStream interface
  */
@@ -46,7 +48,7 @@ public class ApexStreamImplTest
     TestOperator<String, Integer> firstOperator = new TestOperator<>();
     TestOperator<Integer, Date> secondOperator = new TestOperator<>();
     new ApexStreamImpl<String>().addOperator("first", firstOperator, null, firstOperator.output)
-        .addOperator("second", secondOperator, secondOperator.input, null)
+        .endWith(secondOperator, secondOperator.input, name("second"))
         .with(DAG.Locality.THREAD_LOCAL)
         .with(Context.OperatorContext.AUTO_RECORD, true)
         .with("prop", "TestProp").populateDag(dag);

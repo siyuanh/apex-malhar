@@ -85,7 +85,7 @@ public class LocalTestWithoutStreamApplication
           }
         })
         .window(new WindowOption.GlobalWindow(), new TriggerOption().accumulatingFiredPanes().withEarlyFiringsAtEvery(1))
-        .countByKey(new Function.MapFunction<String, Tuple<KeyValPair<String, Long>>>()
+        .countByKey(new Function.ToKeyValue<String, String, Long>()
         {
           @Override
           public Tuple<KeyValPair<String, Long>> f(String input)

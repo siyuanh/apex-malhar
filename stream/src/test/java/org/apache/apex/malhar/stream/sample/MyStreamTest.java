@@ -99,12 +99,12 @@ public class MyStreamTest
         }, new Function.FilterFunction<String>()
         {
           @Override
-          public Boolean f(String input)
+          public boolean f(String input)
           {
             return input.startsWith("word");
           }
         }).window(new WindowOption.GlobalWindow(), new TriggerOption().accumulatingFiredPanes().withEarlyFiringsAtEvery(Duration.millis(1000)))
-        .countByKey(new Function.MapFunction<String, Tuple<KeyValPair<String, Long>>>()
+        .countByKey(new Function.ToKeyValue<String, String, Long>()
         {
           @Override
           public Tuple<KeyValPair<String, Long>> f(String input)
@@ -150,12 +150,12 @@ public class MyStreamTest
     }, new Function.FilterFunction<String>()
     {
       @Override
-      public Boolean f(String input)
+      public boolean f(String input)
       {
         return input.startsWith("word");
       }
     }).window(new WindowOption.GlobalWindow(), new TriggerOption().accumulatingFiredPanes().withEarlyFiringsAtEvery(Duration.millis(1000)))
-    .countByKey(new Function.MapFunction<String, Tuple<KeyValPair<String, Long>>>()
+    .countByKey(new Function.ToKeyValue<String, String, Long>()
     {
       @Override
       public Tuple<KeyValPair<String, Long>> f(String input)

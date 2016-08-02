@@ -34,6 +34,7 @@ import org.apache.apex.malhar.lib.window.WindowOption;
 
 import org.apache.apex.malhar.stream.api.ApexStream;
 import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
+import org.apache.apex.malhar.stream.api.Option;
 import org.apache.apex.malhar.stream.api.WindowedStream;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.function.Function.FlatMapFunction;
@@ -190,57 +191,27 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   }
 
   @Override
-  public <O, STREAM extends ApexStream<O>> STREAM map(Function.MapFunction<T, O> mf)
+  public <O, STREAM extends ApexStream<O>> STREAM map(Function.MapFunction<T, O> mf, Option... opts)
   {
-    return map(mf.toString(), mf);
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public <O, STREAM extends ApexStream<O>> STREAM map(String name, Function.MapFunction<T, O> mf)
-  {
-    if (name == null) {
-      name = mf.toString();
-    }
     FunctionOperator.MapFunctionOperator<T, O> opt = new FunctionOperator.MapFunctionOperator<>(mf);
-    return (STREAM)addOperator(name, opt, opt.input, opt.output);
+    return (STREAM)addOperator(mf.toString(), opt, opt.input, opt.output, opts);
   }
 
-  @Override
-  public <O, STREAM extends ApexStream<O>> STREAM flatMap(FlatMapFunction<T, O> flatten)
-  {
-    return flatMap(flatten.toString(), flatten);
-  }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public <O, STREAM extends ApexStream<O>> STREAM flatMap(String name, FlatMapFunction<T, O> flatten)
+  public <O, STREAM extends ApexStream<O>> STREAM flatMap(FlatMapFunction<T, O> flatten, Option... opts)
   {
-    if (name == null) {
-      name = flatten.toString();
-    }
     FunctionOperator.FlatMapFunctionOperator<T, O> opt = new FunctionOperator.FlatMapFunctionOperator<>(flatten);
-    return (STREAM)addOperator(name, opt, opt.input, opt.output);
-  }
-
-  @Override
-  public <STREAM extends ApexStream<T>> STREAM filter(final Function.FilterFunction<T> filter)
-  {
-    return filter(filter.toString(), filter);
+    return (STREAM)addOperator(flatten.toString(), opt, opt.input, opt.output, opts);
   }
 
   @Override
   @SuppressWarnings("unchecked")
-  public <STREAM extends ApexStream<T>> STREAM filter(String name, final Function.FilterFunction<T> filter)
+  public <STREAM extends ApexStream<T>> STREAM filter(final Function.FilterFunction<T> filter, Option... opts)
   {
-    if (name == null) {
-      name = filter.toString();
-    }
     FunctionOperator.FilterFunctionOperator<T> filterFunctionOperator = new FunctionOperator.FilterFunctionOperator<>(filter);
-    return (STREAM)addOperator(name, filterFunctionOperator, filterFunctionOperator.input, filterFunctionOperator.output);
+    return (STREAM)addOperator(filter.toString(), filterFunctionOperator, filterFunctionOperator.input, filterFunctionOperator.output, opts);
   }
-
-
 
   public <STREAM extends ApexStream<Map.Entry<Object, Integer>>> STREAM countByElement()
   {
@@ -249,18 +220,25 @@ public class ApexStreamImpl<T> implements ApexStream<T>
 
 
 
-
-  @Override
-  public <O, STREAM extends ApexStream<O>> STREAM addOperator(Operator op, Operator.InputPort<T> inputPort, Operator.OutputPort<O> outputPort)
-  {
-    return addOperator(IDGenerator.generateOperatorIDWithUUID(op.getClass()), op, inputPort, outputPort);
-  }
-
-
   @Override
   @SuppressWarnings("unchecked")
-  public <O, STREAM extends ApexStream<O>> STREAM addOperator(String opName, Operator op, Operator.InputPort<T> inputPort, Operator.OutputPort<O> outputPort)
+  public <O, STREAM extends ApexStream<O>> STREAM addOperator(Operator op, Operator.InputPort<T> inputPort, Operator.OutputPort<O> outputPort, Option... opts)
   {
+    return addOperator(null, op, inputPort, outputPort, opts);
+  }
+
+  @Override
+  public <O, STREAM extends ApexStream<O>> STREAM endWith(Operator op, Operator.InputPort<T> inputPort, Option... opts)
+  {
+    return (STREAM)addOperator(null, op, inputPort, null, opts);
+  }
+
+  protected  <O, STREAM extends ApexStream<O>> STREAM addOperator(String defaultName, Operator op, Operator.InputPort<T> inputPort, Operator.OutputPort<O> outputPort, Option... opts)
+  {
+
+    String opName = defaultName == null ? IDGenerator.generateOperatorIDWithUUID(op.getClass()) : defaultName;
+
+    opName = getNameOr(opName, opts);
 
     checkArguments(op, inputPort, outputPort);
 
@@ -289,7 +267,19 @@ public class ApexStreamImpl<T> implements ApexStream<T>
       }
     }
 
+  }
 
+  private String getNameOr(String defaultValue, Option... opts)
+  {
+    String name = defaultValue;
+    if (opts != null) {
+      for (Option option : opts) {
+        if (option instanceof Option.OpName) {
+          name = ((Option.OpName)option).getName();
+        }
+      }
+    }
+    return name;
   }
 
   @Override

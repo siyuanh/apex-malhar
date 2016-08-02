@@ -50,17 +50,7 @@ public interface ApexStream<T>
    * @param <O> Type of the output
    * @return new stream of type O
    */
-  <O, STREAM extends ApexStream<O>> STREAM map(Function.MapFunction<T, O> mapFunction);
-
-  /**
-   * Simple map transformation<br>
-   * Add an operator to the DAG which convert tuple T to tuple O
-   * @param name operator name
-   * @param mapFunction map function
-   * @param <O> Type of the output
-   * @return new stream of type O
-   */
-  <O, STREAM extends ApexStream<O>> STREAM map(String name, Function.MapFunction<T, O> mapFunction);
+  <O, STREAM extends ApexStream<O>> STREAM map(Function.MapFunction<T, O> mapFunction, Option... opts);
 
   /**
    * Flat map transformation
@@ -69,17 +59,7 @@ public interface ApexStream<T>
    * @param <O> Type of the output
    * @return new stream of type O
    */
-  <O, STREAM extends ApexStream<O>> STREAM flatMap(Function.FlatMapFunction<T, O> flatten);
-
-  /**
-   * Flat map transformation<br>
-   * Add an operator to the DAG which convert tuple T to a collection of tuple O
-   * @param name operator name
-   * @param flatten
-   * @param <O> Type of the output
-   * @return new stream of type O
-   */
-  <O, STREAM extends ApexStream<O>> STREAM flatMap(String name, Function.FlatMapFunction<T, O> flatten);
+  <O, STREAM extends ApexStream<O>> STREAM flatMap(Function.FlatMapFunction<T, O> flatten, Option... opts);
 
   /**
    * Filter transformation<br>
@@ -87,17 +67,7 @@ public interface ApexStream<T>
    * @param filter filter function
    * @return new stream of same type
    */
-  <STREAM extends ApexStream<T>> STREAM filter(Function.FilterFunction<T> filter);
-
-  /**
-   * Filter transformation<br>
-   * Add an operator to the DAG which filter out tuple T that cannot satisfy the FilterFunction
-   * @param name operator name
-   * @param filter filter function
-   * @return new stream of same type
-   */
-  <STREAM extends ApexStream<T>> STREAM filter(String name, Function.FilterFunction<T> filter);
-
+  <STREAM extends ApexStream<T>> STREAM filter(Function.FilterFunction<T> filter, Option... opts);
 
   /**
    * Extend the dag by adding one operator<br>
@@ -107,18 +77,16 @@ public interface ApexStream<T>
    * @param <O> type of the output
    * @return new stream of type O
    */
-  <O, STREAM extends ApexStream<O>> STREAM addOperator(Operator op, Operator.InputPort<T> inputPort,  Operator.OutputPort<O> outputPort);
+  <O, STREAM extends ApexStream<O>> STREAM addOperator(Operator op, Operator.InputPort<T> inputPort,  Operator.OutputPort<O> outputPort, Option... opts);
 
   /**
-   * Extend the dag by adding one {@see Operator}
-   * @param opName Operator name
+   * Extend the dag by adding one end operator<br>
    * @param op Operator added to the stream
    * @param inputPort InputPort of the operator that is connected to last exposed OutputPort in the stream
-   * @param outputPort OutputPort of the operator will be connected to next operator
    * @param <O> type of the output
    * @return new stream of type O
    */
-  <O, STREAM extends ApexStream<O>> STREAM addOperator(String opName, Operator op, Operator.InputPort<T> inputPort,  Operator.OutputPort<O> outputPort);
+  <O, STREAM extends ApexStream<O>> STREAM endWith(Operator op, Operator.InputPort<T> inputPort, Option... opts);
 
   /**
    * Extend the dag by adding one {@see CompositeStreamTransform}
