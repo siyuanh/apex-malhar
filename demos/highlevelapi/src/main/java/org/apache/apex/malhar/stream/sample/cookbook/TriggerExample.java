@@ -24,6 +24,7 @@ import java.util.Objects;
 import org.joda.time.Duration;
 
 import org.apache.apex.malhar.lib.window.TriggerOption;
+import org.apache.apex.malhar.lib.window.Tuple;
 import org.apache.apex.malhar.lib.window.WindowOption;
 import org.apache.apex.malhar.stream.api.ApexStream;
 import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
@@ -532,10 +533,10 @@ public class TriggerExample
    * Extract the freeway and total flow in a reading.
    * Freeway is used as key since we are calculating the total flow for each freeway.
    */
-  static class ExtractFlowInfo implements Function.MapFunction<String, KeyValPair<String, Integer>>
+  static class ExtractFlowInfo implements Function.ToKeyValue<String, String, Integer>
   {
     @Override
-    public KeyValPair<String, Integer> f(String input)
+    public Tuple<KeyValPair<String, Integer>> f(String input)
     {
       String[] laneInfo = input.split(",");
       if (laneInfo[0].equals("timestamp")) {
@@ -553,7 +554,7 @@ public class TriggerExample
       if (totalFlow == null || totalFlow <= 0) {
         return null;
       }
-      return new KeyValPair<>(freeway, totalFlow);
+      return new Tuple.PlainTuple<>(new KeyValPair<>(freeway, totalFlow));
     }
   }
 
