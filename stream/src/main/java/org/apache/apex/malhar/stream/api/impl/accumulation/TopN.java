@@ -30,7 +30,6 @@ import org.apache.apex.malhar.lib.window.Accumulation;
  */
 public class TopN<T> implements Accumulation<T, List<T>, List<T>>
 {
-
   int n;
 
   Comparator<T> comparator;

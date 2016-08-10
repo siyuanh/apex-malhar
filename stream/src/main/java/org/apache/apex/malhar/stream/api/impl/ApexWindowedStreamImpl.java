@@ -62,7 +62,7 @@ public class ApexWindowedStreamImpl<T> extends ApexStreamImpl<T> implements Wind
 
   protected Duration allowedLateness;
 
-  private class ConvertFn<T> implements Function.MapFunction<T, Tuple<T>>
+  private static class ConvertFn<T> implements Function.MapFunction<T, Tuple<T>>
   {
 
     @Override
