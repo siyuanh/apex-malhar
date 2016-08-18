@@ -24,9 +24,7 @@ import org.apache.hadoop.classification.InterfaceStability;
  * A group of Streams and transforms in between
  */
 @InterfaceStability.Evolving
-public abstract class CompositeStreamTransform<IN, OUT>
+public abstract class CompositeStreamTransform<INSTREAM extends ApexStream, OUTSTREAM extends ApexStream>
 {
-
-  public abstract ApexStream<OUT> compose(ApexStream<IN> inputStream);
-
+  public abstract OUTSTREAM compose(INSTREAM inputStream);
 }

@@ -93,7 +93,7 @@ public interface ApexStream<T>
    * @param compositeStreamTransform Composite Streams and Transforms
    * @return new stream of type O
    */
-  <O, STREAM extends ApexStream<O>> STREAM addCompositeStreams(CompositeStreamTransform<T, O> compositeStreamTransform);
+  <O, INSTREAM extends ApexStream<T>, OUTSTREAM extends ApexStream<O>> OUTSTREAM addCompositeStreams(CompositeStreamTransform<INSTREAM, OUTSTREAM> compositeStreamTransform);
 
   /**
    * Union multiple stream into one

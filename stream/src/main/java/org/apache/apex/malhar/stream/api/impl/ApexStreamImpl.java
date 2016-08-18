@@ -283,10 +283,11 @@ public class ApexStreamImpl<T> implements ApexStream<T>
   }
 
   @Override
-  public <O, STREAM extends ApexStream<O>> STREAM addCompositeStreams(CompositeStreamTransform<T, O> compositeStreamTransform)
+  public <O, INSTREAM extends ApexStream<T>, OUTSTREAM extends ApexStream<O>> OUTSTREAM addCompositeStreams(CompositeStreamTransform<INSTREAM, OUTSTREAM> compositeStreamTransform)
   {
-    return (STREAM)compositeStreamTransform.compose(this);
+    return compositeStreamTransform.compose((INSTREAM)this);
   }
+
 
   /* Check to see if inputPort and outputPort belongs to the operator */
   private void checkArguments(Operator op, Operator.InputPort inputPort, Operator.OutputPort outputPort)
